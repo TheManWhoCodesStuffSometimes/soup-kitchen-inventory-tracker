@@ -1,0 +1,8 @@
+{
+  "name": "Soup Kitchen Inventory Tracker",
+  "description": "An intelligent inventory management app for soup kitchens. Easily log donations using barcode/image scanning, voice descriptions, and manual entry, with smart categorization powered by Gemini.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
