@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { InventoryItem, Summary, VoiceAnalysisResult, ImageAnalysisResult, Category } from './types';
 import { InventoryItemCard } from './components/InventoryItemCard';
@@ -6,7 +5,7 @@ import { Summary as SummaryComponent } from './components/Summary';
 import { CameraModal } from './components/CameraModal';
 import { VoiceModal } from './components/VoiceModal';
 import { Button, Spinner, PlusIcon } from './components/ui';
-import { processVoiceWithGemini, processImageWithN8n, submitInventoryToN8n } from './services/apiService';
+import { processVoiceWithN8n, processImageWithN8n, submitInventoryToN8n } from './services/apiService';
 import { CATEGORIES } from './constants';
 
 function generateFormId() {
@@ -205,7 +204,7 @@ const App: React.FC = () => {
             <VoiceModal
                 isOpen={isVoiceOpen}
                 onClose={() => setIsVoiceOpen(false)}
-                onProcess={processVoiceWithGemini}
+                onProcess={processVoiceWithN8n}
                 onSuccess={handleVoiceSuccess}
             />
         </div>
