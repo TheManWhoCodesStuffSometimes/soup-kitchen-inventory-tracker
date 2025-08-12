@@ -44,6 +44,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-bold text-slate-100">Item #{itemIndex + 1}</h3>
         <button
+          type="button"
           onClick={() => onDelete(item.id)}
           className="absolute top-3 right-3 text-slate-500 hover:text-red-400 hover:bg-slate-700 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
           aria-label="Delete item"
@@ -56,6 +57,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
         <p className="text-sm font-medium text-center text-slate-400 mb-3">Smart Input Options</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
            <Button 
+             type="button"
              onClick={() => onOpenBarcode(itemIndex)} 
              variant="secondary" 
              disabled={isItemProcessing}
@@ -64,6 +66,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
              <BarcodeIcon /> Scan Barcode
            </Button>
            <Button 
+             type="button"
              onClick={() => onOpenCamera(itemIndex)} 
              variant="secondary"
              disabled={isItemProcessing}
@@ -72,6 +75,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
              <CameraIcon /> Analyze Photo
            </Button>
            <Button 
+             type="button"
              onClick={() => onOpenVoice(itemIndex)} 
              variant="secondary"
              disabled={isItemProcessing}
