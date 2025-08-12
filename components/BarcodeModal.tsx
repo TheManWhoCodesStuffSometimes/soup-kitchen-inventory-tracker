@@ -134,21 +134,26 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     if (!isScanning) return;
 
     const code = result.codeResult.code;
+    console.log(`Barcode detected: ${code}, confidence: ${result.codeResult.confidence}`);
     
     // Basic validation
     if (code.length < 8 || code.length > 18 || !/^[0-9]+$/.test(code)) {
+      console.log(`Invalid barcode format: ${code} (length: ${code.length})`);
       return;
     }
 
-    // Confidence check
-    if (result.codeResult.confidence && result.codeResult.confidence < 80) {
+    // More lenient confidence check
+    if (result.codeResult.confidence && result.codeResult.confidence < 60) {
+      console.log(`Low confidence: ${result.codeResult.confidence}%`);
       return;
     }
+
+    console.log(`Valid barcode candidate: ${code}`);
 
     // Add to stability buffer
     stabilityThresholdRef.current.push(code);
-    if (stabilityThresholdRef.current.length > 5) {
-      stabilityThresholdRef.current.shift(); // Keep only last 5 readings
+    if (stabilityThresholdRef.current.length > 3) {
+      stabilityThresholdRef.current.shift(); // Keep only last 3 readings
     }
 
     // Check if we have consistent readings
@@ -179,6 +184,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     } else {
       // Reset hold timer if readings aren't consistent
       if (holdTimer) {
+        console.log('Resetting hold timer - inconsistent readings');
         clearInterval(holdTimer);
         setHoldTimer(null);
         setHoldCount(0);
