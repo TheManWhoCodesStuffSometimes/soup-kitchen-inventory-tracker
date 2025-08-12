@@ -65,15 +65,12 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    // Wait for video to be ready
-    if (video.videoWidth === 0 || video.videoHeight === 0) {
-      setError('Video not ready. Please wait and try again.');
-      return;
-    }
+    // Set canvas dimensions - use fallback if video dimensions not ready
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 480;
     
-    // Set canvas dimensions to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = width;
+    canvas.height = height;
     
     const ctx = canvas.getContext('2d');
     if (!ctx) {
@@ -207,15 +204,6 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                 autoPlay 
                 playsInline 
                 className="w-full h-64 object-cover"
-                onLoadedMetadata={() => {
-                  // Ensure video is ready before allowing photo capture
-                  if (videoRef.current && videoRef.current.videoWidth > 0) {
-                    console.log('Video ready:', {
-                      width: videoRef.current.videoWidth,
-                      height: videoRef.current.videoHeight
-                    });
-                  }
-                }}
               />
               <div className="absolute inset-0 border-2 border-white border-dashed opacity-50 m-8"></div>
             </div>
@@ -224,7 +212,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
               <button
                 type="button"
                 onClick={takePhoto}
-                disabled={!stream || (videoRef.current?.videoWidth || 0) === 0}
+                disabled={!stream}
                 className="flex-1 bg-blue-600 text-white py-3 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 📸 Take Photo
