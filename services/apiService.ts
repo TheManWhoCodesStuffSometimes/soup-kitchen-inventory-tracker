@@ -36,20 +36,26 @@ export async function processVoiceWithN8n(text: string): Promise<VoiceAnalysisRe
   }
 }
 
-export async function processImageWithN8n(base64Image: string): Promise<ImageAnalysisResult> {
+export async function processImageWithN8n(imageBlob: Blob): Promise<ImageAnalysisResult> {
   try {
+    // Create FormData to send binary image
+    const formData = new FormData();
+    formData.append('image', imageBlob, 'image.png');
+    
+    console.log('Sending binary image:', {
+      size: imageBlob.size,
+      type: imageBlob.type
+    });
+
     const response = await fetch(N8N_WEBHOOKS.IMAGE_ANALYZE, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ image: base64Image })
+      body: formData // Send as multipart/form-data
     });
 
     if (!response.ok) {
-        const errorBody = await response.text();
-        console.error('N8N Image Webhook Error:', response.status, errorBody);
-        throw new Error(`Image processing failed with status: ${response.status}. Please try again or enter details manually.`);
+      const errorBody = await response.text();
+      console.error('N8N Image Webhook Error:', response.status, errorBody);
+      throw new Error(`Image processing failed with status: ${response.status}. Please try again or enter details manually.`);
     }
 
     const result = await response.json();
@@ -58,10 +64,10 @@ export async function processImageWithN8n(base64Image: string): Promise<ImageAna
   } catch (error) {
     console.error("Error sending image to n8n:", error);
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        throw new Error("CORS Error: The request was blocked. Please check your n8n webhook's CORS configuration to allow requests from this website.");
+      throw new Error("CORS Error: The request was blocked. Please check your n8n webhook's CORS configuration to allow requests from this website.");
     }
     if (error instanceof Error) {
-        throw error;
+      throw error;
     }
     throw new Error("Failed to send image for analysis. Check your connection.");
   }
