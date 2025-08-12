@@ -4,7 +4,7 @@ import { ImageAnalysisResult } from '../types';
 interface CameraModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCapture: (base64Image: string) => Promise<ImageAnalysisResult>;
+  onCapture: (imageBlob: Blob) => Promise<ImageAnalysisResult>;
   onSuccess: (result: ImageAnalysisResult) => void;
 }
 
@@ -16,7 +16,8 @@ export const CameraModal: React.FC<CameraModalProps> = ({
 }) => {
   const [step, setStep] = useState<'camera' | 'preview' | 'processing'>('camera');
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [photo, setPhoto] = useState<string>('');
+  const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
+  const [photoURL, setPhotoURL] = useState<string>('');
   const [error, setError] = useState<string>('');
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -29,6 +30,10 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     }
     return () => {
       stopCamera();
+      // Clean up photo URL
+      if (photoURL) {
+        URL.revokeObjectURL(photoURL);
+      }
     };
   }, [isOpen, step]);
 
@@ -65,7 +70,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    // Set canvas dimensions - use fallback if video dimensions not ready
+    // Set canvas dimensions
     const width = video.videoWidth || 640;
     const height = video.videoHeight || 480;
     
@@ -79,42 +84,32 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     }
     
     try {
-      // Clear canvas first
+      // Clear canvas and draw video frame
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Draw video frame to canvas
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       
-      // Try PNG first (more reliable than JPEG)
-      let dataURL = canvas.toDataURL('image/png');
-      
-      // Validate the data URL
-      if (!dataURL || dataURL === 'data:,' || dataURL.length < 100) {
-        setError('Failed to capture image. Please try again.');
-        return;
-      }
-      
-      // Check if PNG is too large (> 2MB), then try JPEG
-      if (dataURL.length > 2 * 1024 * 1024) {
-        console.log('PNG too large, trying JPEG...');
-        dataURL = canvas.toDataURL('image/jpeg', 0.9); // High quality JPEG
-        
-        // Validate JPEG
-        if (!dataURL || dataURL === 'data:,' || dataURL.length < 100) {
-          setError('Failed to compress image. Please try again.');
+      // Convert canvas to blob (binary image data)
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          setError('Failed to create image. Please try again.');
           return;
         }
-      }
-      
-      console.log('Captured image:', {
-        format: dataURL.startsWith('data:image/png') ? 'PNG' : 'JPEG',
-        size: dataURL.length,
-        dimensions: `${canvas.width}x${canvas.height}`
-      });
-      
-      setPhoto(dataURL);
-      setStep('preview');
-      stopCamera();
+        
+        // Create URL for preview
+        const url = URL.createObjectURL(blob);
+        
+        console.log('Captured image blob:', {
+          size: blob.size,
+          type: blob.type,
+          dimensions: `${canvas.width}x${canvas.height}`
+        });
+        
+        setPhotoBlob(blob);
+        setPhotoURL(url);
+        setStep('preview');
+        stopCamera();
+        
+      }, 'image/png', 0.95); // PNG for maximum compatibility
       
     } catch (err) {
       console.error('Error capturing photo:', err);
@@ -123,42 +118,27 @@ export const CameraModal: React.FC<CameraModalProps> = ({
   };
 
   const retakePhoto = () => {
-    setPhoto('');
+    if (photoURL) {
+      URL.revokeObjectURL(photoURL);
+    }
+    setPhotoBlob(null);
+    setPhotoURL('');
     setStep('camera');
   };
 
   const processPhoto = async () => {
-    if (!photo) return;
+    if (!photoBlob) return;
     
     setStep('processing');
     setError('');
     
     try {
-      // Validate photo before sending
-      if (!photo.startsWith('data:image/')) {
-        throw new Error('Invalid image format');
-      }
-      
-      // Extract just the base64 part for the API
-      const base64Data = photo.split(',')[1];
-      if (!base64Data || base64Data.length === 0) {
-        throw new Error('No image data found');
-      }
-      
-      // Test base64 validity
-      try {
-        atob(base64Data.substring(0, 100)); // Test decode first 100 chars
-      } catch {
-        throw new Error('Invalid base64 encoding');
-      }
-      
-      console.log('Sending image to API:', {
-        fullSize: photo.length,
-        base64Size: base64Data.length,
-        format: photo.split(';')[0].split(':')[1]
+      console.log('Sending blob to API:', {
+        size: photoBlob.size,
+        type: photoBlob.type
       });
       
-      const result = await onCapture(photo); // Send full data URL
+      const result = await onCapture(photoBlob);
       onSuccess(result);
       closeModal();
     } catch (err) {
@@ -170,8 +150,12 @@ export const CameraModal: React.FC<CameraModalProps> = ({
 
   const closeModal = () => {
     stopCamera();
+    if (photoURL) {
+      URL.revokeObjectURL(photoURL);
+    }
     setStep('camera');
-    setPhoto('');
+    setPhotoBlob(null);
+    setPhotoURL('');
     setError('');
     onClose();
   };
@@ -232,14 +216,15 @@ export const CameraModal: React.FC<CameraModalProps> = ({
         {step === 'preview' && (
           <div className="space-y-4">
             <div className="bg-black rounded-lg overflow-hidden">
-              <img src={photo} alt="Captured" className="w-full h-64 object-cover" />
+              {photoURL && <img src={photoURL} alt="Captured" className="w-full h-64 object-cover" />}
             </div>
             
             {/* Show image info for debugging */}
-            <div className="text-xs text-gray-400">
-              Format: {photo.startsWith('data:image/png') ? 'PNG' : 'JPEG'} | 
-              Size: {(photo.length / 1024).toFixed(1)}KB
-            </div>
+            {photoBlob && (
+              <div className="text-xs text-gray-400">
+                Format: {photoBlob.type} | Size: {(photoBlob.size / 1024).toFixed(1)}KB
+              </div>
+            )}
             
             <div className="flex gap-3">
               <button
