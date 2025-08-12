@@ -224,19 +224,19 @@ const App: React.FC = () => {
         }
     };
 
-    const handleImageProcess = async (base64Image: string): Promise<ImageAnalysisResult> => {
-        if (activeItemIndex === null) throw new Error('No active item');
-        const currentItem = items[activeItemIndex];
-        if (!currentItem) throw new Error('Item not found');
-
-        setItemProcessing(currentItem.id, true);
-        
-        try {
-            const result = await processImageWithN8n(base64Image);
-            return result;
-        } finally {
-            setItemProcessing(currentItem.id, false);
-        }
+    const handleImageProcess = async (imageBlob: Blob): Promise<ImageAnalysisResult> => {
+      if (activeItemIndex === null) throw new Error('No active item');
+      const currentItem = items[activeItemIndex];
+      if (!currentItem) throw new Error('Item not found');
+    
+      setItemProcessing(currentItem.id, true);
+      
+      try {
+        const result = await processImageWithN8n(imageBlob);
+        return result;
+      } finally {
+        setItemProcessing(currentItem.id, false);
+      }
     };
 
     // Handle camera to barcode fallback
