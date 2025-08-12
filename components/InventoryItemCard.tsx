@@ -1,8 +1,7 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { InventoryItem } from '../types';
 import { CATEGORIES, DONORS } from '../constants';
-import { Button, Input, Select, CameraIcon, MicIcon } from './ui';
+import { Button, Input, Select, CameraIcon, MicIcon, BarcodeIcon } from './ui';
 
 interface InventoryItemCardProps {
   item: InventoryItem;
@@ -11,9 +10,20 @@ interface InventoryItemCardProps {
   onDelete: (id: string) => void;
   onOpenCamera: (itemIndex: number) => void;
   onOpenVoice: (itemIndex: number) => void;
+  onOpenBarcode: (itemIndex: number) => void;
+  isProcessing?: { [key: string]: boolean };
 }
 
-export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({ item, itemIndex, onUpdate, onDelete, onOpenCamera, onOpenVoice }) => {
+export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({ 
+  item, 
+  itemIndex, 
+  onUpdate, 
+  onDelete, 
+  onOpenCamera, 
+  onOpenVoice, 
+  onOpenBarcode,
+  isProcessing = {}
+}) => {
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -26,6 +36,8 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({ item, item
   };
 
   const totalItemWeight = (item.weightLbs * item.quantity).toFixed(2);
+
+  const isItemProcessing = isProcessing[item.id];
 
   return (
     <div className="bg-slate-800 p-5 rounded-xl shadow-md border border-slate-700 relative transition-shadow hover:shadow-lg">
@@ -41,11 +53,42 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({ item, item
       </div>
 
       <div className="bg-slate-900/50 p-4 rounded-lg mb-5 border border-slate-700">
-        <p className="text-sm font-medium text-center text-slate-400 mb-3">Smart Input</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-           <Button onClick={() => onOpenCamera(itemIndex)} variant="secondary"><CameraIcon /> Scan/Photo</Button>
-           <Button onClick={() => onOpenVoice(itemIndex)} variant="secondary"><MicIcon /> Voice Describe</Button>
+        <p className="text-sm font-medium text-center text-slate-400 mb-3">Smart Input Options</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+           <Button 
+             onClick={() => onOpenBarcode(itemIndex)} 
+             variant="secondary" 
+             disabled={isItemProcessing}
+             className="text-sm"
+           >
+             <BarcodeIcon /> Scan Barcode
+           </Button>
+           <Button 
+             onClick={() => onOpenCamera(itemIndex)} 
+             variant="secondary"
+             disabled={isItemProcessing}
+             className="text-sm"
+           >
+             <CameraIcon /> Analyze Photo
+           </Button>
+           <Button 
+             onClick={() => onOpenVoice(itemIndex)} 
+             variant="secondary"
+             disabled={isItemProcessing}
+             className="text-sm"
+           >
+             <MicIcon /> Voice Describe
+           </Button>
         </div>
+        
+        {isItemProcessing && (
+          <div className="mt-3 text-center">
+            <div className="flex items-center justify-center space-x-2 text-amber-400">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-amber-400"></div>
+              <span className="text-sm font-medium">Processing...</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
@@ -57,15 +100,30 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({ item, item
                 onChange={handleInputChange}
                 placeholder="e.g., Campbell's Tomato Soup, 10.75 oz can"
                 required
+                className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
             />
         </div>
 
-        <Select label="Category" name="category" value={item.category} onChange={handleInputChange} required>
+        <Select 
+          label="Category" 
+          name="category" 
+          value={item.category} 
+          onChange={handleInputChange} 
+          required
+          className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
+        >
           <option value="" disabled>Select Category</option>
           {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
         </Select>
 
-        <Select label="Donor Name" name="donorName" value={item.donorName} onChange={handleInputChange} required>
+        <Select 
+          label="Donor Name" 
+          name="donorName" 
+          value={item.donorName} 
+          onChange={handleInputChange} 
+          required
+          className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
+        >
            <option value="" disabled>Select Donor</option>
            {DONORS.map(don => <option key={don} value={don}>{don === 'custom' ? "Custom (Enter manually)" : don}</option>)}
         </Select>
@@ -79,6 +137,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({ item, item
                     onChange={handleInputChange}
                     placeholder="Enter donor name manually"
                     required
+                    className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
                 />
             </div>
         )}
@@ -93,6 +152,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({ item, item
             step="0.01"
             min="0"
             placeholder="0.00"
+            className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
           />
         </div>
         
@@ -106,6 +166,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({ item, item
             min="1"
             step="1"
             required
+            className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
           />
         </div>
 
@@ -117,6 +178,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({ item, item
                 value={item.expirationDate}
                 onChange={handleInputChange}
                 required
+                className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
             />
         </div>
 
