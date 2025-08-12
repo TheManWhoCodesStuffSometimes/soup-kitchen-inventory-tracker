@@ -153,15 +153,17 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
 
     // Check if we have consistent readings
     const uniqueCodes = new Set(stabilityThresholdRef.current);
-    if (uniqueCodes.size === 1 && stabilityThresholdRef.current.length >= 3) {
-      // We have 3+ consistent readings, start hold timer
+    if (uniqueCodes.size === 1 && stabilityThresholdRef.current.length >= 2) {
+      // We have 2+ consistent readings, start hold timer
       if (!holdTimer) {
+        console.log(`Starting hold timer for barcode: ${code}`);
         setHoldCount(0);
         const timer = setInterval(() => {
           setHoldCount(prev => {
             const newCount = prev + 1;
-            if (newCount >= 20) { // 2 seconds at 100ms intervals
-              // Stable for 2 seconds, process the barcode
+            if (newCount >= 15) { // 1.5 seconds at 100ms intervals
+              // Stable for 1.5 seconds, process the barcode
+              console.log(`Processing stable barcode: ${code}`);
               clearInterval(timer);
               setHoldTimer(null);
               setHoldCount(0);
@@ -209,34 +211,34 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
         type: "LiveStream", 
         target: videoRef.current,
         constraints: {
-          width: { min: 320, ideal: 800 },
-          height: { min: 240, ideal: 600 },
-          facingMode: "environment",
-          focusMode: "continuous"
+          width: { min: 640, ideal: 1280 },
+          height: { min: 480, ideal: 720 },
+          facingMode: "environment"
         }
       },
       locator: {
-        patchSize: "large",
-        halfSample: false
+        patchSize: "medium",
+        halfSample: true
       },
-      numOfWorkers: 2,
-      frequency: 10, // Scan frequency
+      numOfWorkers: 4,
+      frequency: 5, // Lower frequency for more stability
       decoder: {
         readers: [
           "ean_reader",
           "ean_8_reader", 
           "upc_reader",
           "upc_e_reader",
-          "code_128_reader"
+          "code_128_reader",
+          "codabar_reader"
         ],
         multiple: false
       },
       locate: true,
       area: {
-        top: "25%",
-        right: "15%", 
-        left: "15%",
-        bottom: "25%"
+        top: "20%",
+        right: "20%", 
+        left: "20%",
+        bottom: "20%"
       }
     }, (err: any) => {
       if (err) {
@@ -311,7 +313,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     onPhotoInstead();
   };
 
-  const progressPercentage = (holdCount / 20) * 100;
+  const progressPercentage = (holdCount / 15) * 100;
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Scan Product Barcode" size="lg">
@@ -339,7 +341,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
                         />
                       </div>
                       <p className="text-green-400 text-xs text-center mt-1 font-medium">
-                        Hold steady... ({Math.ceil((20 - holdCount) / 10)}s)
+                        Hold steady... ({Math.ceil((15 - holdCount) / 10)}s)
                       </p>
                     </div>
                   )}
