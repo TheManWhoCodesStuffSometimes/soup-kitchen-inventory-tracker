@@ -1,4 +1,3 @@
-
 import { Category, Donor } from './types';
 
 export const CATEGORIES: (Category | 'Other')[] = [
@@ -31,6 +30,7 @@ export const DONORS: Donor[] = [
 ];
 
 export const N8N_WEBHOOKS = {
-  PHOTO_RECEIVED: 'https://thayneautomations.app.n8n.cloud/webhook/Soup-Kitchen-Photo-Recieved',
+  VOICE_ANALYZE: 'https://thayneautomations.app.n8n.cloud/webhook/soup-kitchen-voice-analyze',
+  IMAGE_ANALYZE: 'https://thayneautomations.app.n8n.cloud/webhook/soup-kitchen-image-analyze', 
   INFO_RECEIVED: 'https://thayneautomations.app.n8n.cloud/webhook/Soup-Kitchen-Info-Recieved'
 };
