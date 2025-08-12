@@ -4,9 +4,19 @@ import { InventoryItemCard } from './components/InventoryItemCard';
 import { Summary as SummaryComponent } from './components/Summary';
 import { CameraModal } from './components/CameraModal';
 import { VoiceModal } from './components/VoiceModal';
+import { BarcodeModal } from './components/BarcodeModal';
 import { Button, Spinner, PlusIcon } from './components/ui';
 import { processVoiceWithN8n, processImageWithN8n, submitInventoryToN8n } from './services/apiService';
 import { CATEGORIES } from './constants';
+
+// Product info type for barcode scanner
+interface ProductInfo {
+  name: string;
+  brand?: string;
+  category?: string;
+  weight?: string;
+  barcode: string;
+}
 
 function generateFormId() {
     return `SK${new Date().toISOString().replace(/[-:.]/g, '')}`;
@@ -19,11 +29,12 @@ const App: React.FC = () => {
     
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [isVoiceOpen, setIsVoiceOpen] = useState(false);
+    const [isBarcodeOpen, setIsBarcodeOpen] = useState(false);
     const [activeItemIndex, setActiveItemIndex] = useState<number | null>(null);
 
     const [isLoading, setIsLoading] = useState(false);
     const [statusMessage, setStatusMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
-
+    const [processingItems, setProcessingItems] = useState<{[key: string]: boolean}>({});
 
     const getNewItem = (): InventoryItem => {
         const defaultExpiration = new Date();
@@ -61,6 +72,12 @@ const App: React.FC = () => {
 
     const handleDeleteItem = (id: string) => {
         setItems(prevItems => prevItems.filter(item => item.id !== id));
+        // Clear processing state for deleted item
+        setProcessingItems(prev => {
+            const newState = { ...prev };
+            delete newState[id];
+            return newState;
+        });
     };
 
     useEffect(() => {
@@ -75,39 +92,158 @@ const App: React.FC = () => {
         setSummary(newSummary);
     }, [items]);
 
-    const handleOpenModal = (modal: 'camera' | 'voice', index: number) => {
+    const setItemProcessing = (itemId: string, isProcessing: boolean) => {
+        setProcessingItems(prev => ({
+            ...prev,
+            [itemId]: isProcessing
+        }));
+    };
+
+    // Parse product weight from string (from barcode scanner)
+    const parseProductWeight = (quantityString: string): number => {
+        if (!quantityString || typeof quantityString !== 'string') return 0;
+
+        const quantity = quantityString.toLowerCase().trim();
+        const match = quantity.match(/(\d+\.?\d*)\s*([a-z]+)/);
+        if (!match) return 0;
+
+        const value = parseFloat(match[1]);
+        const unit = match[2];
+
+        switch (unit) {
+            case 'g':
+            case 'gram':
+            case 'grams':
+                return value * 0.00220462;
+            case 'kg':
+            case 'kilogram':
+            case 'kilograms':
+                return value * 2.20462;
+            case 'oz':
+            case 'ounce':
+            case 'ounces':
+                return value * 0.0625;
+            case 'lb':
+            case 'lbs':
+            case 'pound':
+            case 'pounds':
+                return value;
+            case 'ml':
+            case 'milliliter':
+            case 'milliliters':
+                return value * 0.00220462;
+            case 'l':
+            case 'liter':
+            case 'liters':
+                return value * 2.20462;
+            case 'fl':
+            case 'floz':
+                return value * 0.0652;
+            default:
+                return 0;
+        }
+    };
+
+    const handleOpenModal = (modal: 'camera' | 'voice' | 'barcode', index: number) => {
         setActiveItemIndex(index);
         if (modal === 'camera') setIsCameraOpen(true);
         if (modal === 'voice') setIsVoiceOpen(true);
+        if (modal === 'barcode') setIsBarcodeOpen(true);
+    };
+
+    const handleBarcodeSuccess = (productInfo: ProductInfo) => {
+        if (activeItemIndex === null) return;
+        const currentItem = items[activeItemIndex];
+        if (!currentItem) return;
+
+        // Build description
+        let description = productInfo.name;
+        if (productInfo.brand) {
+            description = `${productInfo.brand} - ${productInfo.name}`;
+        }
+
+        // Update item fields
+        handleUpdateItem(currentItem.id, 'description', description);
+        
+        if (productInfo.category && CATEGORIES.includes(productInfo.category as Category)) {
+            handleUpdateItem(currentItem.id, 'category', productInfo.category);
+        } else {
+            handleUpdateItem(currentItem.id, 'category', 'Other');
+        }
+
+        // Parse and set weight if available
+        if (productInfo.weight) {
+            const weight = parseProductWeight(productInfo.weight);
+            if (weight > 0) {
+                handleUpdateItem(currentItem.id, 'weightLbs', weight);
+            }
+        }
     };
 
     const handleVoiceSuccess = (result: VoiceAnalysisResult) => {
         if (activeItemIndex === null) return;
         const currentItem = items[activeItemIndex];
-        if(!currentItem) return;
+        if (!currentItem) return;
 
         handleUpdateItem(currentItem.id, 'description', result.itemName);
         handleUpdateItem(currentItem.id, 'weightLbs', result.estimatedWeightLbs);
-        if(CATEGORIES.includes(result.category as Category)){
+        if (CATEGORIES.includes(result.category as Category)) {
             handleUpdateItem(currentItem.id, 'category', result.category);
         } else {
             handleUpdateItem(currentItem.id, 'category', 'Other');
         }
-    }
+    };
 
     const handleImageSuccess = (result: ImageAnalysisResult) => {
         if (activeItemIndex === null) return;
         const currentItem = items[activeItemIndex];
-        if(!currentItem) return;
+        if (!currentItem) return;
 
         handleUpdateItem(currentItem.id, 'description', result.description);
         handleUpdateItem(currentItem.id, 'weightLbs', result.weightLbs);
-        if(CATEGORIES.includes(result.category as Category)){
+        if (CATEGORIES.includes(result.category as Category)) {
             handleUpdateItem(currentItem.id, 'category', result.category);
         } else {
             handleUpdateItem(currentItem.id, 'category', 'Other');
         }
-    }
+    };
+
+    // Enhanced processing functions with background processing
+    const handleVoiceProcess = async (text: string): Promise<VoiceAnalysisResult> => {
+        if (activeItemIndex === null) throw new Error('No active item');
+        const currentItem = items[activeItemIndex];
+        if (!currentItem) throw new Error('Item not found');
+
+        setItemProcessing(currentItem.id, true);
+        
+        try {
+            const result = await processVoiceWithN8n(text);
+            return result;
+        } finally {
+            setItemProcessing(currentItem.id, false);
+        }
+    };
+
+    const handleImageProcess = async (base64Image: string): Promise<ImageAnalysisResult> => {
+        if (activeItemIndex === null) throw new Error('No active item');
+        const currentItem = items[activeItemIndex];
+        if (!currentItem) throw new Error('Item not found');
+
+        setItemProcessing(currentItem.id, true);
+        
+        try {
+            const result = await processImageWithN8n(base64Image);
+            return result;
+        } finally {
+            setItemProcessing(currentItem.id, false);
+        }
+    };
+
+    // Handle camera to barcode fallback
+    const handlePhotoInstead = () => {
+        setIsBarcodeOpen(false);
+        setIsCameraOpen(true);
+    };
     
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -160,6 +296,8 @@ const App: React.FC = () => {
                                 onDelete={handleDeleteItem}
                                 onOpenCamera={() => handleOpenModal('camera', index)}
                                 onOpenVoice={() => handleOpenModal('voice', index)}
+                                onOpenBarcode={() => handleOpenModal('barcode', index)}
+                                isProcessing={processingItems}
                             />
                         ))}
 
@@ -195,16 +333,27 @@ const App: React.FC = () => {
                 </div>
             </form>
 
+            {/* Barcode Scanner Modal */}
+            <BarcodeModal 
+                isOpen={isBarcodeOpen} 
+                onClose={() => setIsBarcodeOpen(false)}
+                onSuccess={handleBarcodeSuccess}
+                onPhotoInstead={handlePhotoInstead}
+            />
+
+            {/* Camera Modal */}
             <CameraModal 
                 isOpen={isCameraOpen} 
                 onClose={() => setIsCameraOpen(false)}
-                onCapture={processImageWithN8n}
+                onCapture={handleImageProcess}
                 onSuccess={handleImageSuccess}
             />
+
+            {/* Voice Modal */}
             <VoiceModal
                 isOpen={isVoiceOpen}
                 onClose={() => setIsVoiceOpen(false)}
-                onProcess={processVoiceWithN8n}
+                onProcess={handleVoiceProcess}
                 onSuccess={handleVoiceSuccess}
             />
         </div>
