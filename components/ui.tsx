@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 // --- SVG Icons ---
@@ -16,12 +15,29 @@ export const MicIcon = ({ className = 'w-5 h-5' }: { className?: string }) => (
     </svg>
 );
 
+export const BarcodeIcon = ({ className = 'w-5 h-5' }: { className?: string }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2zM8 7v10M12 7v10M16 7v10" />
+    </svg>
+);
+
 export const PlusIcon = ({ className = 'w-5 h-5' }: { className?: string }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
     </svg>
 );
 
+export const CheckIcon = ({ className = 'w-5 h-5' }: { className?: string }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+);
+
+export const XIcon = ({ className = 'w-5 h-5' }: { className?: string }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+);
 
 // --- UI Components ---
 
@@ -53,14 +69,14 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ label, id, ...props }, ref) => (
+  ({ label, id, className = '', ...props }, ref) => (
     <div>
       <label htmlFor={id} className="block text-sm font-medium leading-6 text-slate-300">{label}</label>
       <div className="mt-2">
         <input
           id={id}
           ref={ref}
-          className="block w-full rounded-md border-0 py-2 px-3 bg-slate-800 text-slate-200 shadow-sm ring-1 ring-inset ring-slate-700 placeholder:text-slate-500 focus:ring-2 focus:ring-inset focus:ring-amber-500 sm:text-sm sm:leading-6 transition"
+          className={`block w-full rounded-md border-0 py-2 px-3 bg-slate-800 text-slate-200 shadow-sm ring-1 ring-inset ring-slate-700 placeholder:text-slate-500 focus:ring-2 focus:ring-inset focus:ring-amber-500 sm:text-sm sm:leading-6 transition ${className}`}
           {...props}
         />
       </div>
@@ -74,14 +90,14 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, id, children, ...props }, ref) => (
+  ({ label, id, children, className = '', ...props }, ref) => (
     <div>
       <label htmlFor={id} className="block text-sm font-medium leading-6 text-slate-300">{label}</label>
       <div className="mt-2">
         <select
           id={id}
           ref={ref}
-          className="block w-full rounded-md border-0 py-2 pl-3 pr-10 bg-slate-800 text-slate-200 shadow-sm ring-1 ring-inset ring-slate-700 focus:ring-2 focus:ring-inset focus:ring-amber-500 sm:text-sm sm:leading-6 transition"
+          className={`block w-full rounded-md border-0 py-2 pl-3 pr-10 bg-slate-800 text-slate-200 shadow-sm ring-1 ring-inset ring-slate-700 focus:ring-2 focus:ring-inset focus:ring-amber-500 sm:text-sm sm:leading-6 transition ${className}`}
           {...props}
         >
           {children}
@@ -96,14 +112,21 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg';
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md' }) => {
   if (!isOpen) return null;
+
+  const sizeClasses = {
+    sm: 'max-w-sm',
+    md: 'max-w-md', 
+    lg: 'max-w-lg'
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="bg-slate-800 rounded-xl shadow-2xl w-full max-w-md m-4 p-6 border border-slate-700 relative" onClick={(e) => e.stopPropagation()}>
+      <div className={`bg-slate-800 rounded-xl shadow-2xl w-full ${sizeClasses[size]} m-4 p-6 border border-slate-700 relative`} onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-start mb-4">
           <h2 className="text-xl font-bold text-slate-100">{title}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-red-500 text-3xl font-light leading-none" aria-label="Close modal">&times;</button>
@@ -113,7 +136,6 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
     </div>
   );
 };
-
 
 export const Spinner = ({ className = 'w-6 h-6' }: { className?: string }) => (
     <svg className={`${className} animate-spin text-white`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
