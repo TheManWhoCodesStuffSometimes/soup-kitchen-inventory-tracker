@@ -36,7 +36,11 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     try {
       setError('');
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: 640, height: 480 }
+        video: { 
+          facingMode: 'environment', 
+          width: { ideal: 1280, max: 1920 }, 
+          height: { ideal: 720, max: 1080 }
+        }
       });
       setStream(mediaStream);
       if (videoRef.current) {
@@ -61,16 +65,63 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
+    // Wait for video to be ready
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      setError('Video not ready. Please wait and try again.');
+      return;
+    }
+    
+    // Set canvas dimensions to match video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
     const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(video, 0, 0);
-      const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+    if (!ctx) {
+      setError('Canvas context not available.');
+      return;
+    }
+    
+    try {
+      // Clear canvas first
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw video frame to canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Try PNG first (more reliable than JPEG)
+      let dataURL = canvas.toDataURL('image/png');
+      
+      // Validate the data URL
+      if (!dataURL || dataURL === 'data:,' || dataURL.length < 100) {
+        setError('Failed to capture image. Please try again.');
+        return;
+      }
+      
+      // Check if PNG is too large (> 2MB), then try JPEG
+      if (dataURL.length > 2 * 1024 * 1024) {
+        console.log('PNG too large, trying JPEG...');
+        dataURL = canvas.toDataURL('image/jpeg', 0.9); // High quality JPEG
+        
+        // Validate JPEG
+        if (!dataURL || dataURL === 'data:,' || dataURL.length < 100) {
+          setError('Failed to compress image. Please try again.');
+          return;
+        }
+      }
+      
+      console.log('Captured image:', {
+        format: dataURL.startsWith('data:image/png') ? 'PNG' : 'JPEG',
+        size: dataURL.length,
+        dimensions: `${canvas.width}x${canvas.height}`
+      });
+      
       setPhoto(dataURL);
       setStep('preview');
       stopCamera();
+      
+    } catch (err) {
+      console.error('Error capturing photo:', err);
+      setError('Failed to capture photo. Please try again.');
     }
   };
 
@@ -86,10 +137,35 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     setError('');
     
     try {
-      const result = await onCapture(photo);
+      // Validate photo before sending
+      if (!photo.startsWith('data:image/')) {
+        throw new Error('Invalid image format');
+      }
+      
+      // Extract just the base64 part for the API
+      const base64Data = photo.split(',')[1];
+      if (!base64Data || base64Data.length === 0) {
+        throw new Error('No image data found');
+      }
+      
+      // Test base64 validity
+      try {
+        atob(base64Data.substring(0, 100)); // Test decode first 100 chars
+      } catch {
+        throw new Error('Invalid base64 encoding');
+      }
+      
+      console.log('Sending image to API:', {
+        fullSize: photo.length,
+        base64Size: base64Data.length,
+        format: photo.split(';')[0].split(':')[1]
+      });
+      
+      const result = await onCapture(photo); // Send full data URL
       onSuccess(result);
       closeModal();
     } catch (err) {
+      console.error('Photo processing error:', err);
       setError(err instanceof Error ? err.message : 'Processing failed');
       setStep('preview');
     }
@@ -131,6 +207,15 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                 autoPlay 
                 playsInline 
                 className="w-full h-64 object-cover"
+                onLoadedMetadata={() => {
+                  // Ensure video is ready before allowing photo capture
+                  if (videoRef.current && videoRef.current.videoWidth > 0) {
+                    console.log('Video ready:', {
+                      width: videoRef.current.videoWidth,
+                      height: videoRef.current.videoHeight
+                    });
+                  }
+                }}
               />
               <div className="absolute inset-0 border-2 border-white border-dashed opacity-50 m-8"></div>
             </div>
@@ -139,8 +224,8 @@ export const CameraModal: React.FC<CameraModalProps> = ({
               <button
                 type="button"
                 onClick={takePhoto}
-                disabled={!stream}
-                className="flex-1 bg-blue-600 text-white py-3 rounded hover:bg-blue-700 disabled:opacity-50"
+                disabled={!stream || (videoRef.current?.videoWidth || 0) === 0}
+                className="flex-1 bg-blue-600 text-white py-3 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 📸 Take Photo
               </button>
@@ -160,6 +245,12 @@ export const CameraModal: React.FC<CameraModalProps> = ({
           <div className="space-y-4">
             <div className="bg-black rounded-lg overflow-hidden">
               <img src={photo} alt="Captured" className="w-full h-64 object-cover" />
+            </div>
+            
+            {/* Show image info for debugging */}
+            <div className="text-xs text-gray-400">
+              Format: {photo.startsWith('data:image/png') ? 'PNG' : 'JPEG'} | 
+              Size: {(photo.length / 1024).toFixed(1)}KB
             </div>
             
             <div className="flex gap-3">
