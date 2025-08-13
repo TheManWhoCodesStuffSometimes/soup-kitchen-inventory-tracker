@@ -12,6 +12,7 @@ interface InventoryItemCardProps {
   onOpenVoice: (itemIndex: number) => void;
   onOpenBarcode: (itemIndex: number) => void;
   isProcessing?: { [key: string]: boolean };
+  isFieldEmpty?: (value: any) => boolean;
 }
 
 export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({ 
@@ -22,7 +23,8 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
   onOpenCamera, 
   onOpenVoice, 
   onOpenBarcode,
-  isProcessing = {}
+  isProcessing = {},
+  isFieldEmpty = () => false
 }) => {
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -37,6 +39,13 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
 
   const totalItemWeight = (item.weightLbs * item.quantity).toFixed(2);
   const isItemProcessing = isProcessing[item.id];
+
+  // Helper function to get validation classes
+  const getValidationClasses = (value: any, baseClass: string = "") => {
+    const isEmpty = isFieldEmpty(value);
+    const validationClass = isEmpty ? "ring-red-500 ring-2 border-red-500" : "";
+    return `${baseClass} ${validationClass}`.trim();
+  };
 
   return (
     <div className="bg-slate-800 p-5 rounded-xl shadow-md border border-slate-700 relative transition-shadow hover:shadow-lg">
@@ -106,7 +115,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
                 onChange={handleInputChange}
                 placeholder="e.g., Campbell's Tomato Soup, 10.75 oz can"
                 required
-                className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
+                className={getValidationClasses(item.description, isItemProcessing ? "bg-slate-700 opacity-75" : "")}
             />
         </div>
 
@@ -116,7 +125,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
           value={item.category} 
           onChange={handleInputChange} 
           required
-          className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
+          className={getValidationClasses(item.category, isItemProcessing ? "bg-slate-700 opacity-75" : "")}
         >
           <option value="" disabled>Select Category</option>
           {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
@@ -128,7 +137,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
           value={item.donorName} 
           onChange={handleInputChange} 
           required
-          className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
+          className={getValidationClasses(item.donorName, isItemProcessing ? "bg-slate-700 opacity-75" : "")}
         >
            <option value="" disabled>Select Donor</option>
            {DONORS.map(don => <option key={don} value={don}>{don === 'custom' ? "Custom (Enter manually)" : don}</option>)}
@@ -143,7 +152,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
                     onChange={handleInputChange}
                     placeholder="Enter donor name manually"
                     required
-                    className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
+                    className={getValidationClasses(item.customDonorText, isItemProcessing ? "bg-slate-700 opacity-75" : "")}
                 />
             </div>
         )}
@@ -158,7 +167,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
             step="0.01"
             min="0"
             placeholder="0.00"
-            className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
+            className={getValidationClasses(item.weightLbs, isItemProcessing ? "bg-slate-700 opacity-75" : "")}
           />
         </div>
         
@@ -184,7 +193,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
                 value={item.expirationDate}
                 onChange={handleInputChange}
                 required
-                className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
+                className={getValidationClasses(item.expirationDate, isItemProcessing ? "bg-slate-700 opacity-75" : "")}
             />
         </div>
 
