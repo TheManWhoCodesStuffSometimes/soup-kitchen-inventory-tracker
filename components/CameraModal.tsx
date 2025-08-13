@@ -126,10 +126,11 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     setStep('camera');
   };
 
+  // In CameraModal.tsx - Replace the processPhoto function
+
   const processPhoto = async () => {
     if (!photoBlob) return;
     
-    setStep('processing');
     setError('');
     
     try {
@@ -138,13 +139,20 @@ export const CameraModal: React.FC<CameraModalProps> = ({
         type: photoBlob.type
       });
       
-      const result = await onCapture(photoBlob);
-      onSuccess(result);
+      // IMMEDIATELY close modal and start processing in background
       closeModal();
+      
+      // Call the async processing function (no await here - let it run in background)
+      onCapture(photoBlob).then((result) => {
+        onSuccess(result);
+      }).catch((err) => {
+        console.error('Background photo processing error:', err);
+        // Could show a toast notification here instead of blocking modal
+      });
+      
     } catch (err) {
       console.error('Photo processing error:', err);
       setError(err instanceof Error ? err.message : 'Processing failed');
-      setStep('preview');
     }
   };
 
