@@ -186,31 +186,38 @@ export const VoiceModal: React.FC<VoiceModalProps> = ({ isOpen, onClose, onProce
     }
   };
   
-  const handleProcess = async () => {
-    const fullTranscript = transcript.trim();
-    
-    if (!fullTranscript) {
-      setError("Please record a description first.");
-      return;
-    }
-    
-    setIsProcessing(true);
-    setError(null);
-    
-    try {
-      const result = await onProcess(fullTranscript);
-      onSuccess(result);
-      handleClose();
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("An unknown error occurred during processing.");
+  // In VoiceModal.tsx - Replace the handleProcess function
+
+    const handleProcess = async () => {
+      const fullTranscript = transcript.trim();
+      
+      if (!fullTranscript) {
+        setError("Please record a description first.");
+        return;
       }
-    } finally {
-      setIsProcessing(false);
+      
+      setError(null);
+      
+      try {
+        // IMMEDIATELY close modal and start processing in background
+        handleClose();
+        
+        // Call the async processing function (no await here - let it run in background)
+        onProcess(fullTranscript).then((result) => {
+          onSuccess(result);
+        }).catch((err) => {
+          console.error('Background voice processing error:', err);
+          // Could show a toast notification here instead of blocking modal
+        });
+        
+      } catch (err) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("An unknown error occurred during processing.");
+        }
+      }
     }
-  }
 
   const handleClose = () => {
     if (recognitionRef.current && isRecording) {
