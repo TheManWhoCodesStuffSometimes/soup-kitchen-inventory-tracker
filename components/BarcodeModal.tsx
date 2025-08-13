@@ -102,6 +102,11 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
 
   // Lookup barcode via Open Food Facts API
   const lookupBarcode = async (barcode: string) => {
+    // Prevent multiple simultaneous lookups
+    if (isLookingUp) {
+      return;
+    }
+    
     setIsLookingUp(true);
     setError(null);
 
@@ -125,6 +130,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
       setError('Failed to lookup product. Please try again or enter manually.');
     } finally {
       setIsLookingUp(false);
+      setIsProcessingDetection(false); // Reset processing flag here
     }
   };
 
@@ -322,14 +328,15 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen && !detectedProduct && !isLookingUp) {
+    // Only start scanner if modal is open AND we don't have a product AND not currently looking up
+    if (isOpen && !detectedProduct && !isLookingUp && !isProcessingDetection) {
       startScanner();
     }
     
     return () => {
       stopScanner();
     };
-  }, [isOpen, detectedProduct, isLookingUp, startScanner]);
+  }, [isOpen, startScanner]); // Removed detectedProduct and isLookingUp from dependencies
 
   const handleClose = () => {
     stopScanner();
