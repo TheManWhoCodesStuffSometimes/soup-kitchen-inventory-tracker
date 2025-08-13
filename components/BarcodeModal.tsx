@@ -38,6 +38,8 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
   const [systemStatus, setSystemStatus] = useState<string>('Initializing...');
   const [cameraPermission, setCameraPermission] = useState<string>('checking');
+  const [recentDetections, setRecentDetections] = useState<string[]>([]);
+  const [isProcessingDetection, setIsProcessingDetection] = useState(false);
 
   // Parse product weight and convert to pounds
   const parseProductWeight = (quantityString: string): number => {
@@ -137,32 +139,63 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     setDebugInfo(prev => [debugMsg, ...prev.slice(0, 9)]); // Keep last 10 entries
   };
 
-  // ULTRA SENSITIVE barcode detection
+  // BALANCED barcode detection with stability
   const handleBarcodeDetected = useCallback((result: any) => {
-    // Remove the isScanning check - let's process all detections
+    // Prevent processing if we're already handling a detection
+    if (isProcessingDetection) {
+      addDebug('Skipping - already processing a detection');
+      return;
+    }
+
     const code = result.codeResult.code;
     const confidence = result.codeResult.confidence || 0;
     
-    addDebug(`RAW DETECTION: "${code}" (confidence: ${confidence.toFixed(1)}%)`);
+    addDebug(`Detection: "${code}" (conf: ${confidence.toFixed(1)}%)`);
 
-    // Accept ANYTHING that looks remotely like a barcode
+    // Basic validation
     if (!code) {
       addDebug('Rejected: No code');
       return;
     }
 
-    if (code.length < 3) {
+    if (code.length < 6) {
       addDebug(`Rejected: Too short (${code.length} chars)`);
       return;
     }
 
-    // Accept ANY confidence level for testing!
-    addDebug(`✅ ACCEPTING: "${code}" (conf: ${confidence.toFixed(1)}%)`);
-    
-    stopScanner();
-    setLastScannedBarcode(code);
-    lookupBarcode(code);
-  }, []);
+    // Require at least 40% confidence (balanced - not too strict, not too loose)
+    if (confidence < 40) {
+      addDebug(`Rejected: Low confidence (${confidence.toFixed(1)}%)`);
+      return;
+    }
+
+    // Add to recent detections for stability checking
+    setRecentDetections(prev => {
+      const updated = [code, ...prev.slice(0, 2)]; // Keep last 3 detections
+      
+      // Check if we have 2 of the same code in recent detections (stability)
+      const codeCount = updated.filter(c => c === code).length;
+      
+      if (codeCount >= 2) {
+        addDebug(`✅ STABLE DETECTION: "${code}" (appeared ${codeCount} times)`);
+        
+        // Set processing flag to prevent more detections
+        setIsProcessingDetection(true);
+        
+        // Process the barcode
+        setTimeout(() => {
+          stopScanner();
+          setLastScannedBarcode(code);
+          lookupBarcode(code);
+        }, 100); // Small delay to ensure state updates
+        
+        return []; // Clear recent detections
+      } else {
+        addDebug(`Tracking: "${code}" (${codeCount}/2 for stability)`);
+        return updated;
+      }
+    });
+  }, [isProcessingDetection]);
 
   // Check camera permissions
   const checkCameraPermission = async () => {
@@ -328,6 +361,8 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     }
     setIsScanning(false);
     setSystemStatus('Stopped');
+    setRecentDetections([]);
+    setIsProcessingDetection(false);
   };
 
   useEffect(() => {
@@ -349,6 +384,8 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     setLastScannedBarcode('');
     setSystemStatus('Closed');
     setCameraPermission('checking');
+    setRecentDetections([]);
+    setIsProcessingDetection(false);
     onClose();
   };
 
@@ -362,6 +399,8 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   const handleRescan = () => {
     setDetectedProduct(null);
     setError(null);
+    setRecentDetections([]);
+    setIsProcessingDetection(false);
     startScanner();
   };
 
@@ -403,9 +442,9 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
             <div>QuaggaJS: <span className={`font-semibold ${
               window.Quagga ? 'text-green-400' : 'text-red-400'
             }`}>{window.Quagga ? 'loaded' : 'not loaded'}</span></div>
-            <div>Scanning: <span className={`font-semibold ${
-              isScanning ? 'text-green-400' : 'text-slate-400'
-            }`}>{isScanning ? 'active' : 'inactive'}</span></div>
+            <div>Processing: <span className={`font-semibold ${
+              isProcessingDetection ? 'text-amber-400' : 'text-slate-400'
+            }`}>{isProcessingDetection ? 'active' : 'inactive'}</span></div>
           </div>
         </div>
 
