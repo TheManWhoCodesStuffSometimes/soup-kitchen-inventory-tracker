@@ -265,7 +265,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
       }
     };
 
-    addDebug('QuaggaJS config: ' + JSON.stringify(config, null, 2));
+    addDebug('QuaggaJS config prepared (object contains DOM references)');
 
     window.Quagga.init(config, (err: any) => {
       if (err) {
