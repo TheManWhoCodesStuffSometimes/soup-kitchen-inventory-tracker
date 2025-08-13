@@ -111,7 +111,7 @@ export async function submitInventoryToN8n(items: InventoryItem[], summary: { to
   }
 }
 
-// ENHANCED DEBUG VERSION
+// ROBUST VERSION - Handles both single objects and arrays
 export async function fetchDashboardData() {
   console.log('🔍 Starting dashboard data fetch...');
   console.log('📡 Webhook URL:', N8N_WEBHOOKS.RETRIEVE_DASHBOARD_DATA);
@@ -126,7 +126,6 @@ export async function fetchDashboardData() {
     });
 
     console.log('📊 Response status:', response.status);
-    console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorBody = await response.text();
@@ -138,28 +137,50 @@ export async function fetchDashboardData() {
     console.log('✅ Raw response from n8n:', result);
     console.log('📋 Response type:', typeof result);
     console.log('📋 Is array?', Array.isArray(result));
-    
-    if (result && typeof result === 'object') {
-      console.log('🔑 Response keys:', Object.keys(result));
-    }
 
-    // The webhook should return an array of items, but let's handle different response formats
+    // Handle different response formats
+    let finalData: any[] = [];
+
     if (Array.isArray(result)) {
+      // Already an array - perfect!
       console.log('✅ Direct array format detected, length:', result.length);
-      console.log('📄 First item sample:', result[0]);
-      return result;
-    } else if (result.data && Array.isArray(result.data)) {
-      console.log('✅ Data wrapper format detected, length:', result.data.length);
-      console.log('📄 First item sample:', result.data[0]);
-      return result.data;
-    } else if (result.items && Array.isArray(result.items)) {
-      console.log('✅ Items wrapper format detected, length:', result.items.length);
-      console.log('📄 First item sample:', result.items[0]);
-      return result.items;
+      finalData = result;
+    } else if (result && typeof result === 'object') {
+      // Check for wrapped arrays first
+      if (result.data && Array.isArray(result.data)) {
+        console.log('✅ Data wrapper format detected, length:', result.data.length);
+        finalData = result.data;
+      } else if (result.items && Array.isArray(result.items)) {
+        console.log('✅ Items wrapper format detected, length:', result.items.length);
+        finalData = result.items;
+      } else if (result.records && Array.isArray(result.records)) {
+        console.log('✅ Records wrapper format detected, length:', result.records.length);
+        finalData = result.records;
+      } else {
+        // Single object - convert to array
+        console.log('🔧 Single object detected, converting to array');
+        console.log('📄 Object keys:', Object.keys(result));
+        
+        // Check if it has the expected properties of a dashboard item
+        if (result.id && result.Description) {
+          finalData = [result];
+          console.log('✅ Single valid item converted to array');
+        } else {
+          console.error('❌ Unexpected single object format:', result);
+          throw new Error('Unexpected response format from dashboard webhook');
+        }
+      }
     } else {
-      console.error('❌ Unexpected response format:', result);
+      console.error('❌ Unexpected response type:', typeof result, result);
       throw new Error('Unexpected response format from dashboard webhook');
     }
+
+    console.log('🎯 Final data array length:', finalData.length);
+    if (finalData.length > 0) {
+      console.log('📄 First item sample:', finalData[0]);
+    }
+
+    return finalData;
 
   } catch (error) {
     console.error("💥 Error fetching dashboard data:", error);
