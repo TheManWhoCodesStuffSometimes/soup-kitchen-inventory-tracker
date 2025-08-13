@@ -110,3 +110,43 @@ export async function submitInventoryToN8n(items: InventoryItem[], summary: { to
     throw new Error("An unknown error occurred during submission.");
   }
 }
+
+export async function fetchDashboardData() {
+  try {
+    const response = await fetch(N8N_WEBHOOKS.RETRIEVE_DASHBOARD_DATA, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error('N8N Dashboard Webhook Error:', response.status, errorBody);
+      throw new Error(`Failed to fetch dashboard data: ${response.status} - ${errorBody}`);
+    }
+
+    const result = await response.json();
+    
+    // The webhook should return an array of items, but let's handle different response formats
+    if (Array.isArray(result)) {
+      return result;
+    } else if (result.data && Array.isArray(result.data)) {
+      return result.data;
+    } else if (result.items && Array.isArray(result.items)) {
+      return result.items;
+    } else {
+      throw new Error('Unexpected response format from dashboard webhook');
+    }
+
+  } catch (error) {
+    console.error("Error fetching dashboard data:", error);
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error("CORS Error: The request was blocked. Please check your n8n webhook's CORS configuration to allow requests from this website.");
+    }
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("Failed to fetch dashboard data. Please check your connection.");
+  }
+}
