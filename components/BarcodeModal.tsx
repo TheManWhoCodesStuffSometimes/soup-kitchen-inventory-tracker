@@ -39,7 +39,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   const [scanningGuidance, setScanningGuidance] = useState<string>('Position barcode in center');
   const [modalState, setModalState] = useState<'scanning' | 'looking-up' | 'product-found' | 'error'>('scanning');
 
-  // Parse product weight and convert to pounds
+  // Parse product weight and convert to pounds (rounded to 2 decimal places)
   const parseProductWeight = (quantityString: string): number => {
     if (!quantityString || typeof quantityString !== 'string') return 0;
 
@@ -50,38 +50,50 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     const value = parseFloat(match[1]);
     const unit = match[2];
 
+    let weightInPounds = 0;
+    
     switch (unit) {
       case 'g':
       case 'gram':
       case 'grams':
-        return value * 0.00220462;
+        weightInPounds = value * 0.00220462;
+        break;
       case 'kg':
       case 'kilogram': 
       case 'kilograms':
-        return value * 2.20462;
+        weightInPounds = value * 2.20462;
+        break;
       case 'oz':
       case 'ounce':
       case 'ounces':
-        return value * 0.0625;
+        weightInPounds = value * 0.0625;
+        break;
       case 'lb':
       case 'lbs':
       case 'pound':
       case 'pounds':
-        return value;
+        weightInPounds = value;
+        break;
       case 'ml':
       case 'milliliter':
       case 'milliliters':
-        return value * 0.00220462;
+        weightInPounds = value * 0.00220462;
+        break;
       case 'l':
       case 'liter':
       case 'liters':
-        return value * 2.20462;
+        weightInPounds = value * 2.20462;
+        break;
       case 'fl':
       case 'floz':
-        return value * 0.0652;
+        weightInPounds = value * 0.0652;
+        break;
       default:
         return 0;
     }
+
+    // Round to 2 decimal places to avoid floating point precision issues
+    return Math.round(weightInPounds * 100) / 100;
   };
 
   // Auto-categorize products based on Open Food Facts categories
