@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { InventoryItem } from '../types';
 import { CATEGORIES, DONORS } from '../constants';
 import { Button, Input, Select, CameraIcon, MicIcon, BarcodeIcon } from './ui';
@@ -36,7 +36,6 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
   };
 
   const totalItemWeight = (item.weightLbs * item.quantity).toFixed(2);
-
   const isItemProcessing = isProcessing[item.id];
 
   return (
@@ -85,19 +84,18 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
            </Button>
         </div>
         
-        // In InventoryItemCard.tsx - Enhanced processing feedback
-
-      {isItemProcessing && (
-        <div className="mt-3 text-center">
-          <div className="flex items-center justify-center space-x-2 text-amber-400 bg-amber-900/20 border border-amber-600/30 rounded-lg p-3">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-400"></div>
-            <span className="text-sm font-medium">AI is analyzing in background...</span>
+        {isItemProcessing && (
+          <div className="mt-3 text-center">
+            <div className="flex items-center justify-center space-x-2 text-amber-400 bg-amber-900/20 border border-amber-600/30 rounded-lg p-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-400"></div>
+              <span className="text-sm font-medium">AI is analyzing in background...</span>
+            </div>
+            <p className="text-xs text-amber-300 mt-1">
+              Continue with other items while this processes
+            </p>
           </div>
-          <p className="text-xs text-amber-300 mt-1">
-            Continue with other items while this processes
-          </p>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
         <div className="md:col-span-2">
