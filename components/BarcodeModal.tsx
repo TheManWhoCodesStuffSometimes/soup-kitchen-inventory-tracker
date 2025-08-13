@@ -139,11 +139,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
 
   // ULTRA SENSITIVE barcode detection
   const handleBarcodeDetected = useCallback((result: any) => {
-    if (!isScanning) {
-      addDebug('Detection while not scanning - ignored');
-      return;
-    }
-
+    // Remove the isScanning check - let's process all detections
     const code = result.codeResult.code;
     const confidence = result.codeResult.confidence || 0;
     
@@ -166,7 +162,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     stopScanner();
     setLastScannedBarcode(code);
     lookupBarcode(code);
-  }, [isScanning]);
+  }, []);
 
   // Check camera permissions
   const checkCameraPermission = async () => {
@@ -280,12 +276,14 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
       try {
         window.Quagga.start();
         addDebug('✅ QuaggaJS started');
-        setIsScanning(true);
-        setSystemStatus('Scanning...');
         
         // Set up event handlers
         window.Quagga.onDetected(handleBarcodeDetected);
         addDebug('✅ Detection handler attached');
+        
+        // Set scanning state AFTER everything is set up
+        setIsScanning(true);
+        setSystemStatus('Scanning...');
 
       } catch (startErr) {
         addDebug(`❌ QuaggaJS start failed: ${startErr}`);
