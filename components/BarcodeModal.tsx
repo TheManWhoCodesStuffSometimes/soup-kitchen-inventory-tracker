@@ -34,10 +34,6 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [detectedProduct, setDetectedProduct] = useState<ProductInfo | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
-  const [lastScannedBarcode, setLastScannedBarcode] = useState<string>('');
-  const [debugInfo, setDebugInfo] = useState<string[]>([]);
-  const [systemStatus, setSystemStatus] = useState<string>('Initializing...');
-  const [cameraPermission, setCameraPermission] = useState<string>('checking');
   const [recentDetections, setRecentDetections] = useState<{code: string, confidence: number, timestamp: number}[]>([]);
   const [isProcessingDetection, setIsProcessingDetection] = useState(false);
   const [scanningGuidance, setScanningGuidance] = useState<string>('Position barcode in center');
@@ -132,40 +128,15 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     }
   };
 
-  // Add debug message
-  const addDebug = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    const debugMsg = `${timestamp}: ${message}`;
-    console.log(debugMsg);
-    setDebugInfo(prev => [debugMsg, ...prev.slice(0, 9)]); // Keep last 10 entries
-  };
-
-  // Validate barcode format more strictly
+  // Validate barcode format
   const isValidBarcodeFormat = (code: string): boolean => {
-    // Remove any non-digit characters for validation
     const cleanCode = code.replace(/\D/g, '');
-    
-    // Check common barcode lengths - be more flexible
-    const validLengths = [8, 12, 13, 14]; // EAN-8, UPC-A, EAN-13, ITF-14
-    
-    if (!validLengths.includes(cleanCode.length)) {
-      addDebug(`Invalid length: ${cleanCode.length} (valid: ${validLengths.join(',')})`);
-      return false;
-    }
-    
-    // Should be all digits
-    if (!/^\d+$/.test(cleanCode)) {
-      addDebug(`Invalid format: contains non-digits`);
-      return false;
-    }
-    
-    addDebug(`✅ Valid format: ${cleanCode.length} digits`);
-    return true;
+    const validLengths = [8, 12, 13, 14];
+    return validLengths.includes(cleanCode.length) && /^\d+$/.test(cleanCode);
   };
 
-  // OPTIMIZED barcode detection with distance/focus guidance
+  // Barcode detection with stability checking
   const handleBarcodeDetected = useCallback((result: any) => {
-    // Prevent processing if we're already handling a detection
     if (isProcessingDetection) {
       return;
     }
@@ -174,23 +145,20 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     const confidence = result.codeResult.confidence || 0;
     const timestamp = Date.now();
     
-    addDebug(`Detection: "${code}" (conf: ${confidence.toFixed(1)}%) len: ${code.length}`);
-    
-    // Basic validation first
+    // Basic validation
     if (!code || code.length < 7) {
       setScanningGuidance('Move closer to barcode');
       return;
     }
 
-    // Format validation
     if (!isValidBarcodeFormat(code)) {
       setScanningGuidance('Center barcode properly');
       return;
     }
 
-    // MUCH MORE LENIENT confidence threshold since we're getting correct numbers
+    // Confidence-based guidance
     if (confidence < 5) {
-      setScanningGuidance('Hold steady, focus...');
+      setScanningGuidance('Hold steady, focusing...');
       return;
     } else if (confidence < 20) {
       setScanningGuidance('Getting better, hold steady');
@@ -198,79 +166,54 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
       setScanningGuidance('Good! Hold position...');
     }
 
-    // Add to recent detections with timestamp
+    // Add to recent detections for stability
     setRecentDetections(prev => {
-      // Remove old detections (older than 2 seconds)
       const filtered = prev.filter(d => timestamp - d.timestamp < 2000);
-      
-      // Add new detection
       const updated = [...filtered, { code, confidence, timestamp }];
       
-      // Check for stability - need just 2 readings of same code (much more lenient)
       const sameCodeDetections = updated.filter(d => d.code === code);
       
       if (sameCodeDetections.length >= 2) {
-        addDebug(`✅ STABLE DETECTION: "${code}" (appeared ${sameCodeDetections.length} times)`);
         setScanningGuidance('Found! Processing...');
-        
-        // Set processing flag to prevent more detections
         setIsProcessingDetection(true);
         
-        // Process the barcode after small delay
         setTimeout(() => {
           stopScanner();
-          setLastScannedBarcode(code);
           lookupBarcode(code);
         }, 200);
         
-        return []; // Clear detections
-      } else {
-        addDebug(`Tracking: "${code}" (${sameCodeDetections.length}/2 for stability)`);
-        return updated;
+        return [];
       }
+      
+      return updated;
     });
   }, [isProcessingDetection]);
 
   // Check camera permissions
   const checkCameraPermission = async () => {
     try {
-      addDebug('Checking camera permissions...');
-      setCameraPermission('checking');
-      
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      addDebug('✅ Camera permission granted');
-      setCameraPermission('granted');
-      
-      // Stop the test stream
       stream.getTracks().forEach(track => track.stop());
       return true;
     } catch (err) {
-      addDebug(`❌ Camera permission failed: ${err}`);
-      setCameraPermission('denied');
       setError(`Camera access denied: ${err}`);
       return false;
     }
   };
 
+  // Load QuaggaJS library
   const loadQuaggaJS = async (): Promise<boolean> => {
     return new Promise((resolve) => {
       if (window.Quagga) {
-        addDebug('✅ QuaggaJS already loaded');
         resolve(true);
         return;
       }
 
-      addDebug('Loading QuaggaJS from CDN...');
       const script = document.createElement('script');
       script.src = 'https://unpkg.com/quagga@0.12.1/dist/quagga.min.js';
       
-      script.onload = () => {
-        addDebug('✅ QuaggaJS loaded successfully');
-        resolve(true);
-      };
-      
+      script.onload = () => resolve(true);
       script.onerror = () => {
-        addDebug('❌ Failed to load QuaggaJS');
         setError('Failed to load barcode scanner library');
         resolve(false);
       };
@@ -279,51 +222,46 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     });
   };
 
+  // Initialize the scanner
   const initializeScanner = async () => {
     if (!videoRef.current) {
-      addDebug('❌ Video ref not available');
       setError('Video element not ready');
       return;
     }
 
-    addDebug('Initializing scanner...');
-    setSystemStatus('Initializing scanner...');
     setError(null);
     setDetectedProduct(null);
-    setLastScannedBarcode('');
     setScanningGuidance('Position barcode in center');
 
-    // Optimized config for better barcode detection
     const config = {
       inputStream: {
         name: "Live",
         type: "LiveStream", 
         target: videoRef.current,
         constraints: {
-          width: { min: 640, ideal: 1280 }, // Higher resolution for better quality
+          width: { min: 640, ideal: 1280 },
           height: { min: 480, ideal: 720 },
           facingMode: "environment"
         }
       },
       locator: {
-        patchSize: "medium", // Balance between speed and accuracy
-        halfSample: false    // Don't downsample for better quality
+        patchSize: "medium",
+        halfSample: false
       },
       numOfWorkers: 2,
-      frequency: 8, // Moderate frequency for balance
+      frequency: 8,
       decoder: {
         readers: [
-          "ean_reader",      // Most common product barcodes
+          "ean_reader",
           "ean_8_reader", 
           "upc_reader",
           "upc_e_reader",
-          "code_128_reader"  // Common in logistics
+          "code_128_reader"
         ],
         multiple: false
       },
       locate: true,
       area: {
-        // Smaller, centered area for better focus - optimal scanning distance
         top: "25%",
         right: "25%", 
         left: "25%",
@@ -331,76 +269,63 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
       }
     };
 
-    addDebug('QuaggaJS config prepared (object contains DOM references)');
-
     window.Quagga.init(config, (err: any) => {
       if (err) {
-        addDebug(`❌ QuaggaJS init failed: ${JSON.stringify(err)}`);
         setError(`Scanner initialization failed: ${err.name || err.message || 'Unknown error'}`);
-        setSystemStatus('Failed to initialize');
         return;
       }
 
-      addDebug('✅ QuaggaJS initialized successfully');
-      
       try {
         window.Quagga.start();
-        addDebug('✅ QuaggaJS started');
-        
-        // Set up event handlers
         window.Quagga.onDetected(handleBarcodeDetected);
-        addDebug('✅ Detection handler attached');
-        
-        // Set scanning state AFTER everything is set up
         setIsScanning(true);
-        setSystemStatus('Scanning...');
-
       } catch (startErr) {
-        addDebug(`❌ QuaggaJS start failed: ${startErr}`);
         setError(`Scanner start failed: ${startErr}`);
-        setSystemStatus('Failed to start');
       }
     });
   };
 
+  // Start the scanner
   const startScanner = useCallback(async () => {
-    addDebug('=== STARTING SCANNER SEQUENCE ===');
-    setSystemStatus('Checking camera...');
-    
-    // Step 1: Check camera permission
     const hasCamera = await checkCameraPermission();
     if (!hasCamera) return;
     
-    // Step 2: Load QuaggaJS
-    setSystemStatus('Loading scanner library...');
     const hasQuagga = await loadQuaggaJS();
     if (!hasQuagga) return;
     
-    // Step 3: Wait a moment for everything to be ready
-    setSystemStatus('Preparing scanner...');
     setTimeout(() => {
       initializeScanner();
     }, 500);
-    
   }, []);
 
+  // Stop the scanner and clean up
   const stopScanner = () => {
-    addDebug('Stopping scanner...');
-    
     if (window.Quagga && isScanning) {
       try {
         window.Quagga.stop();
         window.Quagga.offDetected(handleBarcodeDetected);
-        addDebug('✅ Scanner stopped');
       } catch (err) {
-        addDebug(`Error stopping scanner: ${err}`);
+        console.error('Error stopping scanner:', err);
       }
     }
     setIsScanning(false);
-    setSystemStatus('Stopped');
     setRecentDetections([]);
     setIsProcessingDetection(false);
     setScanningGuidance('Position barcode in center');
+  };
+
+  // Clean restart of scanner
+  const handleRescan = () => {
+    setDetectedProduct(null);
+    setError(null);
+    setRecentDetections([]);
+    setIsProcessingDetection(false);
+    setScanningGuidance('Position barcode in center');
+    
+    // Give time for cleanup before restarting
+    setTimeout(() => {
+      startScanner();
+    }, 100);
   };
 
   useEffect(() => {
@@ -418,10 +343,6 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     setDetectedProduct(null);
     setError(null);
     setIsLookingUp(false);
-    setDebugInfo([]);
-    setLastScannedBarcode('');
-    setSystemStatus('Closed');
-    setCameraPermission('checking');
     setRecentDetections([]);
     setIsProcessingDetection(false);
     setScanningGuidance('Position barcode in center');
@@ -435,69 +356,24 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     }
   };
 
-  const handleRescan = () => {
-    setDetectedProduct(null);
-    setError(null);
-    setRecentDetections([]);
-    setIsProcessingDetection(false);
-    setScanningGuidance('Position barcode in center');
-    startScanner();
-  };
-
   const handlePhotoInstead = () => {
     handleClose();
     onPhotoInstead();
   };
 
-  // Test barcode manually - use last scanned or fallback
-  const testBarcode = () => {
-    const testCode = lastScannedBarcode || '0611269766639'; // Use your Red Bull code as fallback
-    addDebug(`🧪 MANUAL TEST: Testing with barcode ${testCode}`);
-    lookupBarcode(testCode);
-  };
-
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Smart Barcode Scanner" size="lg">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Scan Product Barcode" size="lg">
       <div className="space-y-4">
-        
-        {/* System Status */}
-        <div className="bg-slate-700 p-3 rounded-lg border border-slate-600">
-          <div className="flex justify-between items-center mb-2">
-            <h4 className="text-sm font-semibold text-slate-200">Scanner Status</h4>
-            <span className={`px-2 py-1 rounded text-xs font-medium ${
-              systemStatus === 'Scanning...' ? 'bg-green-900 text-green-200' :
-              systemStatus.includes('Failed') ? 'bg-red-900 text-red-200' :
-              'bg-amber-900 text-amber-200'
-            }`}>
-              {systemStatus}
-            </span>
-          </div>
-          
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div>Camera: <span className={`font-semibold ${
-              cameraPermission === 'granted' ? 'text-green-400' :
-              cameraPermission === 'denied' ? 'text-red-400' : 
-              'text-amber-400'
-            }`}>{cameraPermission}</span></div>
-            <div>Library: <span className={`font-semibold ${
-              window.Quagga ? 'text-green-400' : 'text-red-400'
-            }`}>{window.Quagga ? 'ready' : 'loading'}</span></div>
-            <div>Focus: <span className={`font-semibold ${
-              isScanning ? 'text-green-400' : 'text-slate-400'
-            }`}>{isScanning ? 'active' : 'inactive'}</span></div>
-          </div>
-        </div>
-
-        {!detectedProduct && !isLookingUp && (
+        {!detectedProduct && !error && !isLookingUp && (
           <>
             <div className="relative w-full aspect-video bg-slate-900 rounded-lg overflow-hidden border border-slate-600">
               <div ref={videoRef} className="w-full h-full" />
               
-              {/* Optimized scanning overlay - smaller, centered area */}
+              {/* Scanning overlay */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="relative">
                   <div className="w-48 h-24 border-2 border-green-400 rounded-lg bg-green-400/10">
-                    {/* Focus guides at corners */}
+                    {/* Corner guides */}
                     <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-green-400"></div>
                     <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-green-400"></div>
                     <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-green-400"></div>
@@ -510,7 +386,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
                     </div>
                   </div>
                   
-                  {/* Distance guidance */}
+                  {/* Guidance text */}
                   <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
                     <div className="bg-black/70 text-green-400 px-2 py-1 rounded text-xs font-medium">
                       {scanningGuidance}
@@ -530,35 +406,6 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
                 <li>• Hold steady when guidance says "Good!"</li>
               </ul>
             </div>
-
-            {/* Debug info panel - collapsible */}
-            <details className="bg-slate-800 rounded-lg border border-slate-700">
-              <summary className="p-3 cursor-pointer text-xs font-semibold text-slate-300 hover:text-slate-200">
-                Debug Info {debugInfo.length > 0 && `(${debugInfo.length})`}
-              </summary>
-              <div className="px-3 pb-3 max-h-32 overflow-y-auto">
-                <div className="space-y-1">
-                  {debugInfo.length === 0 ? (
-                    <div className="text-xs text-slate-500 italic">No debug info yet...</div>
-                  ) : (
-                    debugInfo.map((info, index) => (
-                      <div key={index} className="text-xs font-mono text-slate-400 leading-tight">
-                        {info}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </details>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <Button onClick={testBarcode} variant="secondary" className="text-sm">
-                🧪 Test {lastScannedBarcode ? 'Last Scan' : 'API'}
-              </Button>
-              <Button onClick={handleRescan} variant="secondary" className="text-sm">
-                🔄 Restart
-              </Button>
-            </div>
             
             <div className="flex gap-3">
               <Button onClick={handleClose} variant="secondary" className="flex-1">
@@ -575,9 +422,6 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
           <div className="flex flex-col items-center justify-center py-8 space-y-4">
             <Spinner className="w-8 h-8" />
             <p className="text-slate-300 font-semibold">Looking up product...</p>
-            {lastScannedBarcode && (
-              <p className="text-slate-400 text-sm font-mono">Barcode: {lastScannedBarcode}</p>
-            )}
           </div>
         )}
 
@@ -621,6 +465,12 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
               </div>
             </div>
 
+            <div className="bg-amber-900/30 border border-amber-600/30 rounded-lg p-3">
+              <p className="text-amber-200 text-sm font-medium text-center">
+                Is this the correct product?
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <Button onClick={handleConfirmProduct} variant="primary" className="flex-1">
                 <CheckIcon /> Yes, Correct
@@ -645,9 +495,6 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
           <div className="space-y-4">
             <div className="bg-red-900/50 border border-red-600/50 rounded-lg p-4">
               <p className="text-red-300 text-sm font-medium">{error}</p>
-              {lastScannedBarcode && (
-                <p className="text-red-200 text-xs font-mono mt-2">Last scanned: {lastScannedBarcode}</p>
-              )}
             </div>
             
             <div className="grid grid-cols-2 gap-3">
