@@ -35,6 +35,9 @@ const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [statusMessage, setStatusMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
     const [processingItems, setProcessingItems] = useState<{[key: string]: boolean}>({});
+    
+    // Toast notification for background processing errors
+    const [toastMessage, setToastMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
 
     const getNewItem = (): InventoryItem => {
         const defaultExpiration = new Date();
@@ -180,8 +183,6 @@ const App: React.FC = () => {
         }
     };
 
-    // Replace the handleVoiceSuccess function in App.tsx with this updated version:
-
     const handleVoiceSuccess = (result: VoiceAnalysisResult) => {
       if (activeItemIndex === null) return;
       const currentItem = items[activeItemIndex];
@@ -198,20 +199,19 @@ const App: React.FC = () => {
         handleUpdateItem(currentItem.id, 'category', 'Other');
       }
       
-      // NEW: Handle quantity if provided and greater than 1
+      // Handle quantity if provided and greater than 1
       if (result.quantity && result.quantity > 1) {
         handleUpdateItem(currentItem.id, 'quantity', result.quantity);
       }
       
-      // NEW: Handle donor name if provided and valid
+      // Handle donor name if provided and valid
       if (result.donorName) {
         // Check if it's a valid donor (excluding 'custom')
         const validDonors = DONORS.filter(donor => donor !== 'custom');
-        if (validDonors.includes(result.donorName as Donor)) {
+        if (validDonors.includes(result.donorName as any)) {
           handleUpdateItem(currentItem.id, 'donorName', result.donorName);
         }
-        // If it's not in our list but was detected, could set to 'custom' and fill customDonorText
-        // Uncomment below if you want this behavior:
+        // If it's not in our list but was detected, set to 'custom' and fill customDonorText
         else if (result.donorName.trim().length > 0) {
           handleUpdateItem(currentItem.id, 'donorName', 'custom');
           handleUpdateItem(currentItem.id, 'customDonorText', result.donorName);
@@ -233,7 +233,7 @@ const App: React.FC = () => {
         }
     };
 
-    // Enhanced processing functions with background processing
+    // UPDATED: Background processing functions with toast error handling
     const handleVoiceProcess = async (text: string): Promise<VoiceAnalysisResult> => {
         if (activeItemIndex === null) throw new Error('No active item');
         const currentItem = items[activeItemIndex];
@@ -244,6 +244,14 @@ const App: React.FC = () => {
         try {
             const result = await processVoiceWithN8n(text);
             return result;
+        } catch (error) {
+            // Show toast error instead of modal error
+            setToastMessage({ 
+                type: 'error', 
+                text: `Voice analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
+            });
+            setTimeout(() => setToastMessage(null), 8000);
+            throw error;
         } finally {
             setItemProcessing(currentItem.id, false);
         }
@@ -259,6 +267,14 @@ const App: React.FC = () => {
       try {
         const result = await processImageWithN8n(imageBlob);
         return result;
+      } catch (error) {
+        // Show toast error instead of modal error
+        setToastMessage({ 
+            type: 'error', 
+            text: `Photo analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        });
+        setTimeout(() => setToastMessage(null), 8000);
+        throw error;
       } finally {
         setItemProcessing(currentItem.id, false);
       }
@@ -298,6 +314,25 @@ const App: React.FC = () => {
 
     return (
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 font-sans">
+            {/* Toast notification for background processing errors */}
+            {toastMessage && (
+                <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg border ${
+                    toastMessage.type === 'error' 
+                        ? 'bg-red-900/90 border-red-600 text-red-200' 
+                        : 'bg-green-900/90 border-green-600 text-green-200'
+                }`}>
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{toastMessage.text}</span>
+                        <button 
+                            onClick={() => setToastMessage(null)}
+                            className="ml-3 text-lg hover:opacity-70"
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <header className="text-center mb-10">
                 <h1 className="text-4xl font-extrabold tracking-tight text-slate-100 sm:text-5xl">Soup Kitchen Inventory</h1>
                 <p className="mt-3 text-lg text-slate-300 max-w-2xl mx-auto">Intelligently track and manage your food donations with ease.</p>
