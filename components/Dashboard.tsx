@@ -53,8 +53,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(today.getDate() - 30);
     
-    setEndDate(today.toISOString().split('T')[0]);
-    setStartDate(thirtyDaysAgo.toISOString().split('T')[0]);
+    const todayStr = today.toISOString().split('T')[0];
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+    
+    setEndDate(todayStr);
+    setStartDate(thirtyDaysAgoStr);
+    
+    console.log('📅 Default date range set:');
+    console.log('  Start:', thirtyDaysAgoStr);
+    console.log('  End:', todayStr);
   }, []);
 
   // Load dashboard data on mount
@@ -73,6 +80,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
     
     try {
       const data = await fetchDashboardData();
+      console.log('🎯 Dashboard received data:', data);
+      console.log('📊 Data count:', data.length);
+      
+      if (data.length > 0) {
+        console.log('📄 Sample item dates:');
+        data.slice(0, 3).forEach((item, index) => {
+          console.log(`  Item ${index + 1}:`, item.createdTime, new Date(item.createdTime).toLocaleDateString());
+        });
+      }
+      
       setItems(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
@@ -82,7 +99,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
   };
 
   const filterItemsByDate = () => {
+    console.log('🔍 Starting date filtering...');
+    console.log('📅 Filter range:', startDate, 'to', endDate);
+    console.log('📦 Total items before filtering:', items.length);
+    
     if (!startDate || !endDate) {
+      console.log('⚠️ No date range set, showing all items');
       setFilteredItems(items);
       calculateSummaryStats(items);
       return;
@@ -91,12 +113,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
     const start = new Date(startDate);
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999); // Include the entire end date
+    
+    console.log('📅 Parsed date range:');
+    console.log('  Start:', start.toISOString());
+    console.log('  End:', end.toISOString());
 
-    const filtered = items.filter(item => {
+    const filtered = items.filter((item, index) => {
       const itemDate = new Date(item.createdTime);
-      return itemDate >= start && itemDate <= end;
+      const isInRange = itemDate >= start && itemDate <= end;
+      
+      if (index < 3) { // Log first 3 items for debugging
+        console.log(`📄 Item ${index + 1}:`, {
+          description: item.Description.substring(0, 30) + '...',
+          createdTime: item.createdTime,
+          parsedDate: itemDate.toISOString(),
+          isInRange: isInRange
+        });
+      }
+      
+      return isInRange;
     });
 
+    console.log('✅ Items after filtering:', filtered.length);
     setFilteredItems(filtered);
     calculateSummaryStats(filtered);
   };
@@ -197,6 +235,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
     });
   };
 
+  // CLEAR ALL FILTERS FUNCTION
+  const clearAllFilters = () => {
+    console.log('🧹 Clearing all date filters');
+    setStartDate('');
+    setEndDate('');
+  };
+
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 font-sans">
@@ -246,9 +291,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
         <div className="w-32"></div>
       </div>
 
+      {/* DEBUG INFO */}
+      <div className="bg-slate-700 rounded-lg p-4 mb-6 text-sm">
+        <h3 className="text-slate-200 font-bold mb-2">🔧 Debug Info:</h3>
+        <div className="text-slate-300 space-y-1">
+          <div>📦 Total items loaded: <span className="text-green-400">{items.length}</span></div>
+          <div>🔍 Items after filtering: <span className="text-blue-400">{filteredItems.length}</span></div>
+          <div>📅 Date range: <span className="text-yellow-400">{startDate || 'none'}</span> to <span className="text-yellow-400">{endDate || 'none'}</span></div>
+          {items.length > 0 && (
+            <div>📄 Sample date: <span className="text-purple-400">{items[0]?.createdTime}</span></div>
+          )}
+        </div>
+      </div>
+
       {/* Filters and Export */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
           <Input
             label="Start Date"
             type="date"
@@ -262,10 +320,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
             onChange={(e) => setEndDate(e.target.value)}
           />
           <Button
-            onClick={() => {
-              setStartDate('');
-              setEndDate('');
-            }}
+            onClick={clearAllFilters}
             variant="secondary"
             className="h-10"
           >
@@ -278,6 +333,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
             disabled={filteredItems.length === 0}
           >
             📄 Export CSV
+          </Button>
+          <Button
+            onClick={loadDashboardData}
+            variant="secondary"
+            className="h-10"
+          >
+            🔄 Refresh
           </Button>
         </div>
       </div>
@@ -308,14 +370,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
           <h2 className="text-2xl font-bold text-slate-100">
             Inventory Items 
             <span className="text-slate-400 text-lg ml-2">
-              ({filteredItems.length} items)
+              ({filteredItems.length} items shown)
             </span>
+            {items.length !== filteredItems.length && (
+              <span className="text-yellow-400 text-sm ml-2">
+                ({items.length - filteredItems.length} filtered out)
+              </span>
+            )}
           </h2>
         </div>
 
         {filteredItems.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-slate-400 text-lg">No items found for the selected date range.</p>
+            {items.length === 0 ? (
+              <p className="text-slate-400 text-lg">No inventory data found.</p>
+            ) : (
+              <div>
+                <p className="text-slate-400 text-lg mb-4">No items found for the selected date range.</p>
+                <Button onClick={clearAllFilters} variant="secondary">
+                  Clear Date Filters to Show All Items
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -374,13 +450,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
             </table>
           </div>
         )}
-      </div>
-
-      {/* Refresh Button */}
-      <div className="text-center mt-8">
-        <Button onClick={loadDashboardData} variant="secondary">
-          🔄 Refresh Data
-        </Button>
       </div>
     </div>
   );
