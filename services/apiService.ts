@@ -111,38 +111,58 @@ export async function submitInventoryToN8n(items: InventoryItem[], summary: { to
   }
 }
 
-// FIXED: Changed from GET to POST
+// ENHANCED DEBUG VERSION
 export async function fetchDashboardData() {
+  console.log('🔍 Starting dashboard data fetch...');
+  console.log('📡 Webhook URL:', N8N_WEBHOOKS.RETRIEVE_DASHBOARD_DATA);
+  
   try {
     const response = await fetch(N8N_WEBHOOKS.RETRIEVE_DASHBOARD_DATA, {
-      method: 'POST',  // Changed from GET to POST
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({}) // Send empty body for POST
+      body: JSON.stringify({})
     });
+
+    console.log('📊 Response status:', response.status);
+    console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorBody = await response.text();
-      console.error('N8N Dashboard Webhook Error:', response.status, errorBody);
+      console.error('❌ N8N Dashboard Webhook Error:', response.status, errorBody);
       throw new Error(`Failed to fetch dashboard data: ${response.status} - ${errorBody}`);
     }
 
     const result = await response.json();
+    console.log('✅ Raw response from n8n:', result);
+    console.log('📋 Response type:', typeof result);
+    console.log('📋 Is array?', Array.isArray(result));
     
+    if (result && typeof result === 'object') {
+      console.log('🔑 Response keys:', Object.keys(result));
+    }
+
     // The webhook should return an array of items, but let's handle different response formats
     if (Array.isArray(result)) {
+      console.log('✅ Direct array format detected, length:', result.length);
+      console.log('📄 First item sample:', result[0]);
       return result;
     } else if (result.data && Array.isArray(result.data)) {
+      console.log('✅ Data wrapper format detected, length:', result.data.length);
+      console.log('📄 First item sample:', result.data[0]);
       return result.data;
     } else if (result.items && Array.isArray(result.items)) {
+      console.log('✅ Items wrapper format detected, length:', result.items.length);
+      console.log('📄 First item sample:', result.items[0]);
       return result.items;
     } else {
+      console.error('❌ Unexpected response format:', result);
       throw new Error('Unexpected response format from dashboard webhook');
     }
 
   } catch (error) {
-    console.error("Error fetching dashboard data:", error);
+    console.error("💥 Error fetching dashboard data:", error);
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
       throw new Error("CORS Error: The request was blocked. Please check your n8n webhook's CORS configuration to allow requests from this website.");
     }
