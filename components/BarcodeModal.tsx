@@ -34,10 +34,8 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [detectedProduct, setDetectedProduct] = useState<ProductInfo | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
-  const [scanTimeout, setScanTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [holdTimer, setHoldTimer] = useState<NodeJS.Timeout | null>(null);
-  const [holdCount, setHoldCount] = useState(0);
-  const stabilityThresholdRef = useRef<string[]>([]);
+  const [lastScannedBarcode, setLastScannedBarcode] = useState<string>('');
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
   // Parse product weight and convert to pounds
   const parseProductWeight = (quantityString: string): number => {
@@ -129,68 +127,37 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     }
   };
 
-  // Enhanced barcode detection with stability checking
+  // ULTRA SENSITIVE barcode detection - accepts almost everything!
   const handleBarcodeDetected = useCallback((result: any) => {
     if (!isScanning) return;
 
     const code = result.codeResult.code;
-    console.log(`Barcode detected: ${code}, confidence: ${result.codeResult.confidence}`);
+    const confidence = result.codeResult.confidence || 0;
     
-    // Basic validation
-    if (code.length < 8 || code.length > 18 || !/^[0-9]+$/.test(code)) {
-      console.log(`Invalid barcode format: ${code} (length: ${code.length})`);
+    // Add debug info
+    const debugMsg = `Detected: ${code} (conf: ${confidence.toFixed(1)}%)`;
+    setDebugInfo(prev => [debugMsg, ...prev.slice(0, 4)]); // Keep last 5 entries
+    
+    console.log(debugMsg);
+
+    // VERY RELAXED validation - accept almost any code that looks like it could be a barcode
+    if (!code || code.length < 4) {
+      console.log(`Rejected: too short (${code.length})`);
       return;
     }
 
-    // More lenient confidence check
-    if (result.codeResult.confidence && result.codeResult.confidence < 60) {
-      console.log(`Low confidence: ${result.codeResult.confidence}%`);
+    // Accept any confidence above 10% (very low!)
+    if (confidence < 10) {
+      console.log(`Rejected: confidence too low (${confidence}%)`);
       return;
     }
 
-    console.log(`Valid barcode candidate: ${code}`);
-
-    // Add to stability buffer
-    stabilityThresholdRef.current.push(code);
-    if (stabilityThresholdRef.current.length > 3) {
-      stabilityThresholdRef.current.shift(); // Keep only last 3 readings
-    }
-
-    // Check if we have consistent readings
-    const uniqueCodes = new Set(stabilityThresholdRef.current);
-    if (uniqueCodes.size === 1 && stabilityThresholdRef.current.length >= 2) {
-      // We have 2+ consistent readings, start hold timer
-      if (!holdTimer) {
-        console.log(`Starting hold timer for barcode: ${code}`);
-        setHoldCount(0);
-        const timer = setInterval(() => {
-          setHoldCount(prev => {
-            const newCount = prev + 1;
-            if (newCount >= 15) { // 1.5 seconds at 100ms intervals
-              // Stable for 1.5 seconds, process the barcode
-              console.log(`Processing stable barcode: ${code}`);
-              clearInterval(timer);
-              setHoldTimer(null);
-              setHoldCount(0);
-              stopScanner();
-              lookupBarcode(code);
-              return 0;
-            }
-            return newCount;
-          });
-        }, 100);
-        setHoldTimer(timer);
-      }
-    } else {
-      // Reset hold timer if readings aren't consistent
-      if (holdTimer) {
-        console.log('Resetting hold timer - inconsistent readings');
-        clearInterval(holdTimer);
-        setHoldTimer(null);
-        setHoldCount(0);
-      }
-    }
-  }, [isScanning, holdTimer]);
+    // Accept immediately without stability checking!
+    console.log(`ACCEPTING barcode immediately: ${code}`);
+    stopScanner();
+    setLastScannedBarcode(code);
+    lookupBarcode(code);
+  }, [isScanning]);
 
   const startScanner = useCallback(async () => {
     if (!window.Quagga) {
@@ -209,7 +176,8 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
 
     setError(null);
     setDetectedProduct(null);
-    stabilityThresholdRef.current = [];
+    setDebugInfo([]);
+    setLastScannedBarcode('');
 
     window.Quagga.init({
       inputStream: {
@@ -217,17 +185,17 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
         type: "LiveStream", 
         target: videoRef.current,
         constraints: {
-          width: { min: 640, ideal: 1280 },
-          height: { min: 480, ideal: 720 },
+          width: { min: 320, ideal: 640 }, // Lower resolution for faster processing
+          height: { min: 240, ideal: 480 },
           facingMode: "environment"
         }
       },
       locator: {
-        patchSize: "medium",
-        halfSample: true
+        patchSize: "large", // Changed to large for better detection
+        halfSample: false   // Don't downsample for better accuracy
       },
-      numOfWorkers: 4,
-      frequency: 5, // Lower frequency for more stability
+      numOfWorkers: 2, // Reduced workers
+      frequency: 10,   // Higher frequency for more attempts
       decoder: {
         readers: [
           "ean_reader",
@@ -235,16 +203,18 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
           "upc_reader",
           "upc_e_reader",
           "code_128_reader",
-          "codabar_reader"
+          "code_39_reader",      // Added more readers
+          "codabar_reader",
+          "i2of5_reader"         // Added interleaved 2 of 5
         ],
         multiple: false
       },
       locate: true,
       area: {
-        top: "20%",
-        right: "20%", 
-        left: "20%",
-        bottom: "20%"
+        top: "10%",    // Larger scanning area
+        right: "10%", 
+        left: "10%",
+        bottom: "10%"
       }
     }, (err: any) => {
       if (err) {
@@ -267,19 +237,6 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
       window.Quagga.offDetected(handleBarcodeDetected);
     }
     setIsScanning(false);
-    
-    if (holdTimer) {
-      clearInterval(holdTimer);
-      setHoldTimer(null);
-      setHoldCount(0);
-    }
-    
-    if (scanTimeout) {
-      clearTimeout(scanTimeout);
-      setScanTimeout(null);
-    }
-    
-    stabilityThresholdRef.current = [];
   };
 
   useEffect(() => {
@@ -297,6 +254,8 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     setDetectedProduct(null);
     setError(null);
     setIsLookingUp(false);
+    setDebugInfo([]);
+    setLastScannedBarcode('');
     onClose();
   };
 
@@ -310,7 +269,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   const handleRescan = () => {
     setDetectedProduct(null);
     setError(null);
-    stabilityThresholdRef.current = [];
+    setDebugInfo([]);
     startScanner();
   };
 
@@ -319,10 +278,8 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     onPhotoInstead();
   };
 
-  const progressPercentage = (holdCount / 15) * 100;
-
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Scan Product Barcode" size="lg">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Scan Product Barcode (Ultra Sensitive)" size="lg">
       <div className="space-y-4">
         {!detectedProduct && !error && !isLookingUp && (
           <>
@@ -336,30 +293,29 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
                     {/* Animated scanning line */}
                     <div className="absolute top-1/2 left-4 right-4 h-0.5 bg-green-400 opacity-75 animate-pulse" />
                   </div>
-                  
-                  {/* Hold progress bar */}
-                  {holdCount > 0 && (
-                    <div className="absolute -bottom-8 left-0 right-0">
-                      <div className="bg-slate-800 rounded-full h-2 overflow-hidden">
-                        <div 
-                          className="bg-green-400 h-full transition-all duration-100 ease-out"
-                          style={{ width: `${progressPercentage}%` }}
-                        />
-                      </div>
-                      <p className="text-green-400 text-xs text-center mt-1 font-medium">
-                        Hold steady... ({Math.ceil((15 - holdCount) / 10)}s)
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
               
               <div className="absolute bottom-4 left-4 right-4 text-center">
                 <p className="text-green-400 text-sm font-medium bg-black/60 px-3 py-1 rounded-md">
-                  {isScanning ? 'Position barcode in the green box and hold steady' : 'Starting camera...'}
+                  {isScanning ? 'ULTRA SENSITIVE - Point at any barcode!' : 'Starting camera...'}
                 </p>
               </div>
             </div>
+
+            {/* Debug info panel */}
+            {debugInfo.length > 0 && (
+              <div className="bg-slate-700 p-3 rounded-lg">
+                <h4 className="text-xs font-semibold text-slate-300 mb-2">Debug Info:</h4>
+                <div className="space-y-1">
+                  {debugInfo.map((info, index) => (
+                    <div key={index} className="text-xs font-mono text-slate-400">
+                      {info}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             <div className="flex gap-3">
               <Button onClick={handleClose} variant="secondary" className="flex-1">
@@ -376,6 +332,9 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
           <div className="flex flex-col items-center justify-center py-8 space-y-4">
             <Spinner className="w-8 h-8" />
             <p className="text-slate-300 font-semibold">Looking up product...</p>
+            {lastScannedBarcode && (
+              <p className="text-slate-400 text-sm font-mono">Barcode: {lastScannedBarcode}</p>
+            )}
           </div>
         )}
 
@@ -449,6 +408,9 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
           <div className="space-y-4">
             <div className="bg-red-900/50 border border-red-600/50 rounded-lg p-4">
               <p className="text-red-300 text-sm font-medium">{error}</p>
+              {lastScannedBarcode && (
+                <p className="text-red-200 text-xs font-mono mt-2">Last scanned: {lastScannedBarcode}</p>
+              )}
             </div>
             
             <div className="grid grid-cols-2 gap-3">
@@ -465,6 +427,14 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
             </Button>
           </div>
         )}
+
+        {/* Testing instructions */}
+        <div className="bg-blue-900/30 border border-blue-600/30 rounded-lg p-3">
+          <p className="text-blue-200 text-xs text-center">
+            <strong>Testing Mode:</strong> Ultra sensitive - should scan almost any barcode instantly!<br/>
+            Try pointing at barcodes on products, books, or even barcodes on your screen.
+          </p>
+        </div>
       </div>
     </Modal>
   );
