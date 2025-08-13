@@ -135,36 +135,49 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     return validLengths.includes(cleanCode.length) && /^\d+$/.test(cleanCode);
   };
 
-  // Barcode detection - FAST and SENSITIVE
+  // Barcode detection - NO CONFIDENCE CHECK, just consistency
   const handleBarcodeDetected = useCallback((result: any) => {
     if (isProcessingDetection) {
       return;
     }
 
     const code = result.codeResult.code;
-    const confidence = result.codeResult.confidence || 0;
+    const timestamp = Date.now();
     
-    // Very basic validation - accept almost anything
+    // Very basic validation - just check we have a code
     if (!code || code.length < 6) {
       setScanningGuidance('Move closer to barcode');
       return;
     }
 
-    // VERY LOW confidence threshold for fast scanning
-    if (confidence < 1) {
-      setScanningGuidance('Hold steady...');
-      return;
-    }
+    setScanningGuidance('Reading barcode...');
 
-    setScanningGuidance('Good! Processing...');
-    
-    // Accept immediately without stability checking for speed
-    setIsProcessingDetection(true);
-    
-    setTimeout(() => {
-      stopScanner();
-      lookupBarcode(code);
-    }, 100);
+    // Add to recent detections for consistency checking
+    setRecentDetections(prev => {
+      // Remove old detections (older than 2 seconds)
+      const filtered = prev.filter(d => timestamp - d.timestamp < 2000);
+      
+      // Add new detection (no confidence needed)
+      const updated = [...filtered, { code, confidence: 100, timestamp }];
+      
+      // Check for 3 consistent readings of the same code
+      const sameCodeDetections = updated.filter(d => d.code === code);
+      
+      if (sameCodeDetections.length >= 3) {
+        setScanningGuidance('Found! Processing...');
+        setIsProcessingDetection(true);
+        
+        setTimeout(() => {
+          stopScanner();
+          lookupBarcode(code);
+        }, 100);
+        
+        return []; // Clear detections
+      } else {
+        setScanningGuidance(`Reading... (${sameCodeDetections.length}/3)`);
+        return updated;
+      }
+    });
     
   }, [isProcessingDetection]);
 
