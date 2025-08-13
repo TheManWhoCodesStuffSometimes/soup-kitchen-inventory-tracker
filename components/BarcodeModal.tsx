@@ -145,15 +145,22 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     // Remove any non-digit characters for validation
     const cleanCode = code.replace(/\D/g, '');
     
-    // Check common barcode lengths
-    const validLengths = [8, 12, 13, 14]; // EAN-8, UPC-A, EAN-13, etc.
+    // Check common barcode lengths - be more flexible
+    const validLengths = [8, 12, 13, 14]; // EAN-8, UPC-A, EAN-13, ITF-14
     
     if (!validLengths.includes(cleanCode.length)) {
+      addDebug(`Invalid length: ${cleanCode.length} (valid: ${validLengths.join(',')})`);
       return false;
     }
     
-    // Basic check - should be mostly digits
-    return cleanCode.length >= 8 && /^\d+$/.test(cleanCode);
+    // Should be all digits
+    if (!/^\d+$/.test(cleanCode)) {
+      addDebug(`Invalid format: contains non-digits`);
+      return false;
+    }
+    
+    addDebug(`✅ Valid format: ${cleanCode.length} digits`);
+    return true;
   };
 
   // OPTIMIZED barcode detection with distance/focus guidance
@@ -167,6 +174,8 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     const confidence = result.codeResult.confidence || 0;
     const timestamp = Date.now();
     
+    addDebug(`Detection: "${code}" (conf: ${confidence.toFixed(1)}%) len: ${code.length}`);
+    
     // Basic validation first
     if (!code || code.length < 7) {
       setScanningGuidance('Move closer to barcode');
@@ -175,22 +184,18 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
 
     // Format validation
     if (!isValidBarcodeFormat(code)) {
-      addDebug(`Invalid format: "${code}"`);
       setScanningGuidance('Center barcode properly');
       return;
     }
 
-    // Confidence-based guidance
-    if (confidence < 15) {
+    // MUCH MORE LENIENT confidence threshold since we're getting correct numbers
+    if (confidence < 5) {
       setScanningGuidance('Hold steady, focus...');
-      addDebug(`Low confidence: ${code} (${confidence.toFixed(1)}%)`);
       return;
-    } else if (confidence < 35) {
+    } else if (confidence < 20) {
       setScanningGuidance('Getting better, hold steady');
-      addDebug(`Medium confidence: ${code} (${confidence.toFixed(1)}%)`);
     } else {
       setScanningGuidance('Good! Hold position...');
-      addDebug(`Good confidence: ${code} (${confidence.toFixed(1)}%)`);
     }
 
     // Add to recent detections with timestamp
@@ -201,12 +206,11 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
       // Add new detection
       const updated = [...filtered, { code, confidence, timestamp }];
       
-      // Check for stability - need 3 good readings of same code
+      // Check for stability - need just 2 readings of same code (much more lenient)
       const sameCodeDetections = updated.filter(d => d.code === code);
-      const goodConfidenceCount = sameCodeDetections.filter(d => d.confidence >= 35).length;
       
-      if (goodConfidenceCount >= 2 && confidence >= 35) {
-        addDebug(`✅ STABLE & CONFIDENT: "${code}" (${confidence.toFixed(1)}%)`);
+      if (sameCodeDetections.length >= 2) {
+        addDebug(`✅ STABLE DETECTION: "${code}" (appeared ${sameCodeDetections.length} times)`);
         setScanningGuidance('Found! Processing...');
         
         // Set processing flag to prevent more detections
@@ -221,8 +225,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
         
         return []; // Clear detections
       } else {
-        const progress = `${goodConfidenceCount}/2`;
-        addDebug(`Tracking: "${code}" (${progress}) conf: ${confidence.toFixed(1)}%`);
+        addDebug(`Tracking: "${code}" (${sameCodeDetections.length}/2 for stability)`);
         return updated;
       }
     });
