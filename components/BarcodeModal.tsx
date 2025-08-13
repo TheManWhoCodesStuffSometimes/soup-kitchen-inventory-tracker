@@ -135,7 +135,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     return validLengths.includes(cleanCode.length) && /^\d+$/.test(cleanCode);
   };
 
-  // Barcode detection with stability checking
+  // Barcode detection - FAST and SENSITIVE
   const handleBarcodeDetected = useCallback((result: any) => {
     if (isProcessingDetection) {
       return;
@@ -143,50 +143,29 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
 
     const code = result.codeResult.code;
     const confidence = result.codeResult.confidence || 0;
-    const timestamp = Date.now();
     
-    // Basic validation
-    if (!code || code.length < 7) {
+    // Very basic validation - accept almost anything
+    if (!code || code.length < 6) {
       setScanningGuidance('Move closer to barcode');
       return;
     }
 
-    if (!isValidBarcodeFormat(code)) {
-      setScanningGuidance('Center barcode properly');
+    // VERY LOW confidence threshold for fast scanning
+    if (confidence < 1) {
+      setScanningGuidance('Hold steady...');
       return;
     }
 
-    // Confidence-based guidance
-    if (confidence < 5) {
-      setScanningGuidance('Hold steady, focusing...');
-      return;
-    } else if (confidence < 20) {
-      setScanningGuidance('Getting better, hold steady');
-    } else {
-      setScanningGuidance('Good! Hold position...');
-    }
-
-    // Add to recent detections for stability
-    setRecentDetections(prev => {
-      const filtered = prev.filter(d => timestamp - d.timestamp < 2000);
-      const updated = [...filtered, { code, confidence, timestamp }];
-      
-      const sameCodeDetections = updated.filter(d => d.code === code);
-      
-      if (sameCodeDetections.length >= 2) {
-        setScanningGuidance('Found! Processing...');
-        setIsProcessingDetection(true);
-        
-        setTimeout(() => {
-          stopScanner();
-          lookupBarcode(code);
-        }, 200);
-        
-        return [];
-      }
-      
-      return updated;
-    });
+    setScanningGuidance('Good! Processing...');
+    
+    // Accept immediately without stability checking for speed
+    setIsProcessingDetection(true);
+    
+    setTimeout(() => {
+      stopScanner();
+      lookupBarcode(code);
+    }, 100);
+    
   }, [isProcessingDetection]);
 
   // Check camera permissions
@@ -249,7 +228,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
         halfSample: false
       },
       numOfWorkers: 2,
-      frequency: 8,
+      frequency: 15, // Much higher frequency for faster detection
       decoder: {
         readers: [
           "ean_reader",
@@ -262,10 +241,11 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
       },
       locate: true,
       area: {
-        top: "25%",
-        right: "25%", 
-        left: "25%",
-        bottom: "25%"
+        // Larger scanning area for easier detection
+        top: "15%",
+        right: "15%", 
+        left: "15%",
+        bottom: "15%"
       }
     };
 
