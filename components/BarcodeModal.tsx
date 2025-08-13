@@ -449,9 +449,9 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     onPhotoInstead();
   };
 
-  // Test barcode manually
+  // Test barcode manually - use last scanned or fallback
   const testBarcode = () => {
-    const testCode = '012345678901'; // Test UPC
+    const testCode = lastScannedBarcode || '0611269766639'; // Use your Red Bull code as fallback
     addDebug(`🧪 MANUAL TEST: Testing with barcode ${testCode}`);
     lookupBarcode(testCode);
   };
@@ -553,7 +553,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
             
             <div className="grid grid-cols-2 gap-3">
               <Button onClick={testBarcode} variant="secondary" className="text-sm">
-                🧪 Test API
+                🧪 Test {lastScannedBarcode ? 'Last Scan' : 'API'}
               </Button>
               <Button onClick={handleRescan} variant="secondary" className="text-sm">
                 🔄 Restart
