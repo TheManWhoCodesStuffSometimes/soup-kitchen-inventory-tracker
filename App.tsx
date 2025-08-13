@@ -7,7 +7,7 @@ import { VoiceModal } from './components/VoiceModal';
 import { BarcodeModal } from './components/BarcodeModal';
 import { Button, Spinner, PlusIcon } from './components/ui';
 import { processVoiceWithN8n, processImageWithN8n, submitInventoryToN8n } from './services/apiService';
-import { CATEGORIES } from './constants';
+import { CATEGORIES, DONORS } from './constants';
 
 // Product info type for barcode scanner
 interface ProductInfo {
