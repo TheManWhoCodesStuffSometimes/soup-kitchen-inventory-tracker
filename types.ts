@@ -1,4 +1,3 @@
-
 export interface InventoryItem {
   id: string;
   category: string;
@@ -23,6 +22,8 @@ export interface VoiceAnalysisResult {
   itemName: string;
   category: Category | 'Other';
   estimatedWeightLbs: number;
+  quantity?: number;  // Optional since voice might not always detect it
+  donorName?: string; // Optional since voice might not always detect it
 }
 
 export interface ImageAnalysisResult {
