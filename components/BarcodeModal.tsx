@@ -38,8 +38,9 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
   const [systemStatus, setSystemStatus] = useState<string>('Initializing...');
   const [cameraPermission, setCameraPermission] = useState<string>('checking');
-  const [recentDetections, setRecentDetections] = useState<string[]>([]);
+  const [recentDetections, setRecentDetections] = useState<{code: string, confidence: number, timestamp: number}[]>([]);
   const [isProcessingDetection, setIsProcessingDetection] = useState(false);
+  const [scanningGuidance, setScanningGuidance] = useState<string>('Position barcode in center');
 
   // Parse product weight and convert to pounds
   const parseProductWeight = (quantityString: string): number => {
@@ -139,59 +140,89 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     setDebugInfo(prev => [debugMsg, ...prev.slice(0, 9)]); // Keep last 10 entries
   };
 
-  // BALANCED barcode detection with stability
+  // Validate barcode format more strictly
+  const isValidBarcodeFormat = (code: string): boolean => {
+    // Remove any non-digit characters for validation
+    const cleanCode = code.replace(/\D/g, '');
+    
+    // Check common barcode lengths
+    const validLengths = [8, 12, 13, 14]; // EAN-8, UPC-A, EAN-13, etc.
+    
+    if (!validLengths.includes(cleanCode.length)) {
+      return false;
+    }
+    
+    // Basic check - should be mostly digits
+    return cleanCode.length >= 8 && /^\d+$/.test(cleanCode);
+  };
+
+  // OPTIMIZED barcode detection with distance/focus guidance
   const handleBarcodeDetected = useCallback((result: any) => {
     // Prevent processing if we're already handling a detection
     if (isProcessingDetection) {
-      addDebug('Skipping - already processing a detection');
       return;
     }
 
     const code = result.codeResult.code;
     const confidence = result.codeResult.confidence || 0;
+    const timestamp = Date.now();
     
-    addDebug(`Detection: "${code}" (conf: ${confidence.toFixed(1)}%)`);
-
-    // Basic validation
-    if (!code) {
-      addDebug('Rejected: No code');
+    // Basic validation first
+    if (!code || code.length < 7) {
+      setScanningGuidance('Move closer to barcode');
       return;
     }
 
-    if (code.length < 6) {
-      addDebug(`Rejected: Too short (${code.length} chars)`);
+    // Format validation
+    if (!isValidBarcodeFormat(code)) {
+      addDebug(`Invalid format: "${code}"`);
+      setScanningGuidance('Center barcode properly');
       return;
     }
 
-    // Require at least 40% confidence (balanced - not too strict, not too loose)
-    if (confidence < 40) {
-      addDebug(`Rejected: Low confidence (${confidence.toFixed(1)}%)`);
+    // Confidence-based guidance
+    if (confidence < 15) {
+      setScanningGuidance('Hold steady, focus...');
+      addDebug(`Low confidence: ${code} (${confidence.toFixed(1)}%)`);
       return;
+    } else if (confidence < 35) {
+      setScanningGuidance('Getting better, hold steady');
+      addDebug(`Medium confidence: ${code} (${confidence.toFixed(1)}%)`);
+    } else {
+      setScanningGuidance('Good! Hold position...');
+      addDebug(`Good confidence: ${code} (${confidence.toFixed(1)}%)`);
     }
 
-    // Add to recent detections for stability checking
+    // Add to recent detections with timestamp
     setRecentDetections(prev => {
-      const updated = [code, ...prev.slice(0, 2)]; // Keep last 3 detections
+      // Remove old detections (older than 2 seconds)
+      const filtered = prev.filter(d => timestamp - d.timestamp < 2000);
       
-      // Check if we have 2 of the same code in recent detections (stability)
-      const codeCount = updated.filter(c => c === code).length;
+      // Add new detection
+      const updated = [...filtered, { code, confidence, timestamp }];
       
-      if (codeCount >= 2) {
-        addDebug(`✅ STABLE DETECTION: "${code}" (appeared ${codeCount} times)`);
+      // Check for stability - need 3 good readings of same code
+      const sameCodeDetections = updated.filter(d => d.code === code);
+      const goodConfidenceCount = sameCodeDetections.filter(d => d.confidence >= 35).length;
+      
+      if (goodConfidenceCount >= 2 && confidence >= 35) {
+        addDebug(`✅ STABLE & CONFIDENT: "${code}" (${confidence.toFixed(1)}%)`);
+        setScanningGuidance('Found! Processing...');
         
         // Set processing flag to prevent more detections
         setIsProcessingDetection(true);
         
-        // Process the barcode
+        // Process the barcode after small delay
         setTimeout(() => {
           stopScanner();
           setLastScannedBarcode(code);
           lookupBarcode(code);
-        }, 100); // Small delay to ensure state updates
+        }, 200);
         
-        return []; // Clear recent detections
+        return []; // Clear detections
       } else {
-        addDebug(`Tracking: "${code}" (${codeCount}/2 for stability)`);
+        const progress = `${goodConfidenceCount}/2`;
+        addDebug(`Tracking: "${code}" (${progress}) conf: ${confidence.toFixed(1)}%`);
         return updated;
       }
     });
@@ -257,40 +288,43 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     setError(null);
     setDetectedProduct(null);
     setLastScannedBarcode('');
+    setScanningGuidance('Position barcode in center');
 
+    // Optimized config for better barcode detection
     const config = {
       inputStream: {
         name: "Live",
         type: "LiveStream", 
         target: videoRef.current,
         constraints: {
-          width: { min: 320, ideal: 640 },
-          height: { min: 240, ideal: 480 },
+          width: { min: 640, ideal: 1280 }, // Higher resolution for better quality
+          height: { min: 480, ideal: 720 },
           facingMode: "environment"
         }
       },
       locator: {
-        patchSize: "large",
-        halfSample: false
+        patchSize: "medium", // Balance between speed and accuracy
+        halfSample: false    // Don't downsample for better quality
       },
-      numOfWorkers: 1, // Start with just 1 worker
-      frequency: 5,    // Start slower to see if it helps
+      numOfWorkers: 2,
+      frequency: 8, // Moderate frequency for balance
       decoder: {
         readers: [
-          "ean_reader",
+          "ean_reader",      // Most common product barcodes
           "ean_8_reader", 
           "upc_reader",
           "upc_e_reader",
-          "code_128_reader"
+          "code_128_reader"  // Common in logistics
         ],
         multiple: false
       },
       locate: true,
       area: {
-        top: "20%",
-        right: "20%", 
-        left: "20%",
-        bottom: "20%"
+        // Smaller, centered area for better focus - optimal scanning distance
+        top: "25%",
+        right: "25%", 
+        left: "25%",
+        bottom: "25%"
       }
     };
 
@@ -363,6 +397,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     setSystemStatus('Stopped');
     setRecentDetections([]);
     setIsProcessingDetection(false);
+    setScanningGuidance('Position barcode in center');
   };
 
   useEffect(() => {
@@ -386,6 +421,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     setCameraPermission('checking');
     setRecentDetections([]);
     setIsProcessingDetection(false);
+    setScanningGuidance('Position barcode in center');
     onClose();
   };
 
@@ -401,6 +437,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     setError(null);
     setRecentDetections([]);
     setIsProcessingDetection(false);
+    setScanningGuidance('Position barcode in center');
     startScanner();
   };
 
@@ -417,13 +454,13 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Barcode Scanner Debug Mode" size="lg">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Smart Barcode Scanner" size="lg">
       <div className="space-y-4">
         
         {/* System Status */}
         <div className="bg-slate-700 p-3 rounded-lg border border-slate-600">
           <div className="flex justify-between items-center mb-2">
-            <h4 className="text-sm font-semibold text-slate-200">System Status</h4>
+            <h4 className="text-sm font-semibold text-slate-200">Scanner Status</h4>
             <span className={`px-2 py-1 rounded text-xs font-medium ${
               systemStatus === 'Scanning...' ? 'bg-green-900 text-green-200' :
               systemStatus.includes('Failed') ? 'bg-red-900 text-red-200' :
@@ -433,18 +470,18 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
             </span>
           </div>
           
-          <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="grid grid-cols-3 gap-2 text-xs">
             <div>Camera: <span className={`font-semibold ${
               cameraPermission === 'granted' ? 'text-green-400' :
               cameraPermission === 'denied' ? 'text-red-400' : 
               'text-amber-400'
             }`}>{cameraPermission}</span></div>
-            <div>QuaggaJS: <span className={`font-semibold ${
+            <div>Library: <span className={`font-semibold ${
               window.Quagga ? 'text-green-400' : 'text-red-400'
-            }`}>{window.Quagga ? 'loaded' : 'not loaded'}</span></div>
-            <div>Processing: <span className={`font-semibold ${
-              isProcessingDetection ? 'text-amber-400' : 'text-slate-400'
-            }`}>{isProcessingDetection ? 'active' : 'inactive'}</span></div>
+            }`}>{window.Quagga ? 'ready' : 'loading'}</span></div>
+            <div>Focus: <span className={`font-semibold ${
+              isScanning ? 'text-green-400' : 'text-slate-400'
+            }`}>{isScanning ? 'active' : 'inactive'}</span></div>
           </div>
         </div>
 
@@ -453,52 +490,70 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
             <div className="relative w-full aspect-video bg-slate-900 rounded-lg overflow-hidden border border-slate-600">
               <div ref={videoRef} className="w-full h-full" />
               
-              {/* Scanning overlay */}
+              {/* Optimized scanning overlay - smaller, centered area */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="relative">
-                  <div className="w-48 h-24 border-2 border-green-400 border-dashed rounded-lg bg-green-400/10">
-                    <div className="absolute top-1/2 left-2 right-2 h-0.5 bg-green-400 opacity-75 animate-pulse" />
+                  <div className="w-48 h-24 border-2 border-green-400 rounded-lg bg-green-400/10">
+                    {/* Focus guides at corners */}
+                    <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-green-400"></div>
+                    <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-green-400"></div>
+                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-green-400"></div>
+                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-green-400"></div>
+                    
+                    {/* Center crosshair */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-8 h-0.5 bg-green-400 opacity-60"></div>
+                      <div className="absolute w-0.5 h-8 bg-green-400 opacity-60"></div>
+                    </div>
+                  </div>
+                  
+                  {/* Distance guidance */}
+                  <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                    <div className="bg-black/70 text-green-400 px-2 py-1 rounded text-xs font-medium">
+                      {scanningGuidance}
+                    </div>
                   </div>
                 </div>
               </div>
-              
-              <div className="absolute bottom-4 left-4 right-4 text-center">
-                <p className="text-green-400 text-sm font-medium bg-black/60 px-3 py-1 rounded-md">
-                  {systemStatus}
-                </p>
-              </div>
             </div>
 
-            {/* Debug info panel */}
-            <div className="bg-slate-800 p-3 rounded-lg border border-slate-700 max-h-48 overflow-y-auto">
-              <div className="flex justify-between items-center mb-2">
-                <h4 className="text-xs font-semibold text-slate-300">Debug Log</h4>
-                <button 
-                  onClick={() => setDebugInfo([])}
-                  className="text-xs text-slate-500 hover:text-slate-300"
-                >
-                  Clear
-                </button>
-              </div>
-              <div className="space-y-1">
-                {debugInfo.length === 0 ? (
-                  <div className="text-xs text-slate-500 italic">No debug info yet...</div>
-                ) : (
-                  debugInfo.map((info, index) => (
-                    <div key={index} className="text-xs font-mono text-slate-400 leading-tight">
-                      {info}
-                    </div>
-                  ))
-                )}
-              </div>
+            {/* Scanning tips */}
+            <div className="bg-blue-900/30 border border-blue-600/30 rounded-lg p-3">
+              <h4 className="text-xs font-semibold text-blue-200 mb-1">Scanning Tips:</h4>
+              <ul className="text-xs text-blue-200 space-y-0.5">
+                <li>• Hold 4-6 inches from camera</li>
+                <li>• Keep barcode flat and centered</li>
+                <li>• Ensure good lighting, avoid glare</li>
+                <li>• Hold steady when guidance says "Good!"</li>
+              </ul>
             </div>
+
+            {/* Debug info panel - collapsible */}
+            <details className="bg-slate-800 rounded-lg border border-slate-700">
+              <summary className="p-3 cursor-pointer text-xs font-semibold text-slate-300 hover:text-slate-200">
+                Debug Info {debugInfo.length > 0 && `(${debugInfo.length})`}
+              </summary>
+              <div className="px-3 pb-3 max-h-32 overflow-y-auto">
+                <div className="space-y-1">
+                  {debugInfo.length === 0 ? (
+                    <div className="text-xs text-slate-500 italic">No debug info yet...</div>
+                  ) : (
+                    debugInfo.map((info, index) => (
+                      <div key={index} className="text-xs font-mono text-slate-400 leading-tight">
+                        {info}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </details>
             
             <div className="grid grid-cols-2 gap-3">
               <Button onClick={testBarcode} variant="secondary" className="text-sm">
-                🧪 Test Lookup
+                🧪 Test API
               </Button>
               <Button onClick={handleRescan} variant="secondary" className="text-sm">
-                🔄 Restart Scanner
+                🔄 Restart
               </Button>
             </div>
             
