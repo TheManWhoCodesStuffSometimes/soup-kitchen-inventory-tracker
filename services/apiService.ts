@@ -111,13 +111,15 @@ export async function submitInventoryToN8n(items: InventoryItem[], summary: { to
   }
 }
 
+// FIXED: Changed from GET to POST
 export async function fetchDashboardData() {
   try {
     const response = await fetch(N8N_WEBHOOKS.RETRIEVE_DASHBOARD_DATA, {
-      method: 'GET',
+      method: 'POST',  // Changed from GET to POST
       headers: {
         'Content-Type': 'application/json'
-      }
+      },
+      body: JSON.stringify({}) // Send empty body for POST
     });
 
     if (!response.ok) {
