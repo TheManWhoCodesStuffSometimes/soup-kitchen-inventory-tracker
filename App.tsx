@@ -286,6 +286,31 @@ const App: React.FC = () => {
         setIsCameraOpen(true);
     };
     
+    // Validation functions
+    const isFieldEmpty = (value: any): boolean => {
+        if (typeof value === 'string') return value.trim() === '';
+        if (typeof value === 'number') return value <= 0;
+        return !value;
+    };
+
+    const getIncompleteFields = () => {
+        let incompleteCount = 0;
+        
+        items.forEach(item => {
+            if (isFieldEmpty(item.description)) incompleteCount++;
+            if (isFieldEmpty(item.category)) incompleteCount++;
+            if (isFieldEmpty(item.donorName)) incompleteCount++;
+            if (item.donorName === 'custom' && isFieldEmpty(item.customDonorText)) incompleteCount++;
+            if (isFieldEmpty(item.weightLbs)) incompleteCount++;
+            if (isFieldEmpty(item.expirationDate)) incompleteCount++;
+        });
+        
+        return incompleteCount;
+    };
+
+    const incompleteFieldsCount = getIncompleteFields();
+    const allFieldsComplete = incompleteFieldsCount === 0;
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
@@ -358,6 +383,7 @@ const App: React.FC = () => {
                                 onOpenVoice={() => handleOpenModal('voice', index)}
                                 onOpenBarcode={() => handleOpenModal('barcode', index)}
                                 isProcessing={processingItems}
+                                isFieldEmpty={isFieldEmpty}
                             />
                         ))}
 
@@ -377,6 +403,25 @@ const App: React.FC = () => {
                             <SummaryComponent summary={summary} />
 
                             <div className="text-center">
+                                {/* Validation Status Indicator */}
+                                <div className={`mb-4 p-3 rounded-lg border-2 font-semibold text-sm transition-all duration-300 ${
+                                    allFieldsComplete 
+                                        ? 'bg-green-900/30 border-green-500 text-green-300 shadow-green-500/20 shadow-lg' 
+                                        : 'bg-red-900/30 border-red-500 text-red-300 shadow-red-500/20 shadow-lg animate-pulse'
+                                }`}>
+                                    {allFieldsComplete ? (
+                                        <span className="flex items-center justify-center space-x-2">
+                                            <span className="text-green-400">✓</span>
+                                            <span>All fields are filled</span>
+                                        </span>
+                                    ) : (
+                                        <span className="flex items-center justify-center space-x-2">
+                                            <span className="text-red-400">⚠</span>
+                                            <span>{incompleteFieldsCount} field{incompleteFieldsCount !== 1 ? 's' : ''} not filled out</span>
+                                        </span>
+                                    )}
+                                </div>
+
                                 {statusMessage && (
                                     <div className={`p-3 rounded-md mb-4 text-sm font-medium ${statusMessage.type === 'success' ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
                                         {statusMessage.text}
