@@ -180,18 +180,43 @@ const App: React.FC = () => {
         }
     };
 
-    const handleVoiceSuccess = (result: VoiceAnalysisResult) => {
-        if (activeItemIndex === null) return;
-        const currentItem = items[activeItemIndex];
-        if (!currentItem) return;
+    // Replace the handleVoiceSuccess function in App.tsx with this updated version:
 
-        handleUpdateItem(currentItem.id, 'description', result.itemName);
-        handleUpdateItem(currentItem.id, 'weightLbs', result.estimatedWeightLbs);
-        if (CATEGORIES.includes(result.category as Category)) {
-            handleUpdateItem(currentItem.id, 'category', result.category);
-        } else {
-            handleUpdateItem(currentItem.id, 'category', 'Other');
+    const handleVoiceSuccess = (result: VoiceAnalysisResult) => {
+      if (activeItemIndex === null) return;
+      const currentItem = items[activeItemIndex];
+      if (!currentItem) return;
+    
+      // Always update description and weight
+      handleUpdateItem(currentItem.id, 'description', result.itemName);
+      handleUpdateItem(currentItem.id, 'weightLbs', result.estimatedWeightLbs);
+      
+      // Update category
+      if (CATEGORIES.includes(result.category as Category)) {
+        handleUpdateItem(currentItem.id, 'category', result.category);
+      } else {
+        handleUpdateItem(currentItem.id, 'category', 'Other');
+      }
+      
+      // NEW: Handle quantity if provided and greater than 1
+      if (result.quantity && result.quantity > 1) {
+        handleUpdateItem(currentItem.id, 'quantity', result.quantity);
+      }
+      
+      // NEW: Handle donor name if provided and valid
+      if (result.donorName) {
+        // Check if it's a valid donor (excluding 'custom')
+        const validDonors = DONORS.filter(donor => donor !== 'custom');
+        if (validDonors.includes(result.donorName as Donor)) {
+          handleUpdateItem(currentItem.id, 'donorName', result.donorName);
         }
+        // If it's not in our list but was detected, could set to 'custom' and fill customDonorText
+        // Uncomment below if you want this behavior:
+        else if (result.donorName.trim().length > 0) {
+          handleUpdateItem(currentItem.id, 'donorName', 'custom');
+          handleUpdateItem(currentItem.id, 'customDonorText', result.donorName);
+        }
+      }
     };
 
     const handleImageSuccess = (result: ImageAnalysisResult) => {
