@@ -32,5 +32,6 @@ export const DONORS: Donor[] = [
 export const N8N_WEBHOOKS = {
   VOICE_ANALYZE: 'https://thayneautomations.app.n8n.cloud/webhook/soup-kitchen-voice-analyze',
   IMAGE_ANALYZE: 'https://thayneautomations.app.n8n.cloud/webhook/soup-kitchen-image-analyze', 
-  INFO_RECEIVED: 'https://thayneautomations.app.n8n.cloud/webhook/Soup-Kitchen-Info-Recieved'
+  INFO_RECEIVED: 'https://thayneautomations.app.n8n.cloud/webhook/Soup-Kitchen-Info-Recieved',
+  RETRIEVE_DASHBOARD_DATA: 'https://thayneautomations.app.n8n.cloud/webhook/soup-kitchen-retrieve-dashboard-data'
 };
