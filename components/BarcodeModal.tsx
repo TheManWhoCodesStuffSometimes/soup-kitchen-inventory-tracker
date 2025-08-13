@@ -37,7 +37,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   const [recentDetections, setRecentDetections] = useState<{code: string, confidence: number, timestamp: number}[]>([]);
   const [isProcessingDetection, setIsProcessingDetection] = useState(false);
   const [scanningGuidance, setScanningGuidance] = useState<string>('Position barcode in center');
-  const [hasLookedUpBarcode, setHasLookedUpBarcode] = useState<string | null>(null); // NEW: Track what we've already looked up
+  const [modalState, setModalState] = useState<'scanning' | 'looking-up' | 'product-found' | 'error'>('scanning');
 
   // Parse product weight and convert to pounds
   const parseProductWeight = (quantityString: string): number => {
@@ -103,14 +103,15 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
 
   // Lookup barcode via Open Food Facts API
   const lookupBarcode = async (barcode: string) => {
-    // Prevent multiple simultaneous lookups OR re-lookup of same barcode
-    if (isLookingUp || hasLookedUpBarcode === barcode) {
+    // Prevent multiple simultaneous lookups
+    if (isLookingUp || modalState === 'looking-up' || modalState === 'product-found') {
       return;
     }
     
+    console.log('Starting lookup for barcode:', barcode);
     setIsLookingUp(true);
+    setModalState('looking-up');
     setError(null);
-    setHasLookedUpBarcode(barcode); // Mark this barcode as looked up
 
     try {
       const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
@@ -124,12 +125,18 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
           weight: data.product.quantity || '',
           barcode
         };
+        console.log('Product found:', productInfo);
         setDetectedProduct(productInfo);
+        setModalState('product-found');
       } else {
+        console.log('Product not found in database');
         setError(`Product not found in database. Barcode: ${barcode}`);
+        setModalState('error');
       }
     } catch (err) {
+      console.error('Lookup error:', err);
       setError('Failed to lookup product. Please try again or enter manually.');
+      setModalState('error');
     } finally {
       setIsLookingUp(false);
       setIsProcessingDetection(false);
@@ -145,7 +152,8 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
 
   // Barcode detection - NO CONFIDENCE CHECK, just consistency
   const handleBarcodeDetected = useCallback((result: any) => {
-    if (isProcessingDetection || detectedProduct || isLookingUp) { // FIXED: Also check if we already have a product
+    // Only process if we're in scanning mode
+    if (modalState !== 'scanning' || isProcessingDetection || isLookingUp) {
       return;
     }
 
@@ -158,11 +166,6 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
       return;
     }
 
-    // Don't re-process same barcode we already looked up
-    if (hasLookedUpBarcode === code) {
-      return;
-    }
-
     setScanningGuidance('Reading barcode...');
 
     // Add to recent detections for consistency checking
@@ -170,16 +173,18 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
       // Remove old detections (older than 2 seconds)
       const filtered = prev.filter(d => timestamp - d.timestamp < 2000);
       
-      // Add new detection (no confidence needed)
+      // Add new detection
       const updated = [...filtered, { code, confidence: 100, timestamp }];
       
       // Check for 3 consistent readings of the same code
       const sameCodeDetections = updated.filter(d => d.code === code);
       
       if (sameCodeDetections.length >= 3) {
+        console.log('Barcode detection complete:', code);
         setScanningGuidance('Found! Processing...');
         setIsProcessingDetection(true);
         
+        // Stop scanner and lookup with delay
         setTimeout(() => {
           stopScanner();
           lookupBarcode(code);
@@ -192,7 +197,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
       }
     });
     
-  }, [isProcessingDetection, detectedProduct, isLookingUp, hasLookedUpBarcode]); // FIXED: Added dependencies
+  }, [modalState, isProcessingDetection, isLookingUp]);
 
   // Check camera permissions
   const checkCameraPermission = async () => {
@@ -229,8 +234,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
 
   // Initialize the scanner
   const initializeScanner = async () => {
-    if (!videoRef.current) {
-      setError('Video element not ready');
+    if (!videoRef.current || modalState !== 'scanning') {
       return;
     }
 
@@ -291,6 +295,8 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
 
   // Start the scanner
   const startScanner = useCallback(async () => {
+    if (modalState !== 'scanning') return;
+    
     const hasCamera = await checkCameraPermission();
     if (!hasCamera) return;
     
@@ -300,7 +306,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     setTimeout(() => {
       initializeScanner();
     }, 500);
-  }, []);
+  }, [modalState]);
 
   // Stop the scanner and clean up
   const stopScanner = () => {
@@ -320,11 +326,13 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
 
   // Clean restart of scanner
   const handleRescan = () => {
+    console.log('Restarting scan...');
+    stopScanner();
     setDetectedProduct(null);
     setError(null);
     setRecentDetections([]);
     setIsProcessingDetection(false);
-    setHasLookedUpBarcode(null); // FIXED: Reset lookup tracking
+    setModalState('scanning');
     setScanningGuidance('Position barcode in center');
     
     // Give time for cleanup before restarting
@@ -333,16 +341,29 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     }, 100);
   };
 
-  // FIXED: Only start scanner if we haven't detected a product AND haven't looked up anything
+  // Initialize modal when opened
   useEffect(() => {
-    if (isOpen && !detectedProduct && !isLookingUp && !isProcessingDetection && !hasLookedUpBarcode) {
+    if (isOpen && modalState === 'scanning') {
       startScanner();
     }
     
     return () => {
       stopScanner();
     };
-  }, [isOpen, startScanner]); // REMOVED detectedProduct, isLookingUp from dependencies to prevent restart
+  }, [isOpen, startScanner]);
+
+  // Reset modal state when closed/opened
+  useEffect(() => {
+    if (isOpen) {
+      setModalState('scanning');
+      setDetectedProduct(null);
+      setError(null);
+      setIsLookingUp(false);
+      setRecentDetections([]);
+      setIsProcessingDetection(false);
+      setScanningGuidance('Position barcode in center');
+    }
+  }, [isOpen]);
 
   const handleClose = () => {
     stopScanner();
@@ -351,7 +372,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     setIsLookingUp(false);
     setRecentDetections([]);
     setIsProcessingDetection(false);
-    setHasLookedUpBarcode(null); // FIXED: Reset lookup tracking
+    setModalState('scanning');
     setScanningGuidance('Position barcode in center');
     onClose();
   };
@@ -371,7 +392,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Scan Product Barcode" size="lg">
       <div className="space-y-4">
-        {!detectedProduct && !error && !isLookingUp && (
+        {modalState === 'scanning' && (
           <>
             <div className="relative w-full aspect-video bg-slate-900 rounded-lg overflow-hidden border border-slate-600">
               <div ref={videoRef} className="w-full h-full" />
@@ -425,14 +446,14 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
           </>
         )}
 
-        {isLookingUp && (
+        {modalState === 'looking-up' && (
           <div className="flex flex-col items-center justify-center py-8 space-y-4">
             <Spinner className="w-8 h-8" />
             <p className="text-slate-300 font-semibold">Looking up product...</p>
           </div>
         )}
 
-        {detectedProduct && (
+        {modalState === 'product-found' && detectedProduct && (
           <div className="space-y-4">
             <div className="bg-slate-700 p-4 rounded-lg border border-slate-600">
               <h3 className="text-lg font-semibold text-slate-100 mb-3 flex items-center">
@@ -498,7 +519,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
           </div>
         )}
 
-        {error && !isLookingUp && (
+        {modalState === 'error' && error && (
           <div className="space-y-4">
             <div className="bg-red-900/50 border border-red-600/50 rounded-lg p-4">
               <p className="text-red-300 text-sm font-medium">{error}</p>
