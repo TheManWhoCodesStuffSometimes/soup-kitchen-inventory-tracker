@@ -40,12 +40,22 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
   const totalItemWeight = (item.weightLbs * item.quantity).toFixed(2);
   const isItemProcessing = isProcessing[item.id];
 
-  // Helper function to get validation classes
-  const getValidationClasses = (value: any, baseClass: string = "") => {
+  // Helper function to check if field is empty and add validation styling
+  const getFieldClasses = (value: any, baseClasses: string = "") => {
     const isEmpty = isFieldEmpty(value);
-    const validationClass = isEmpty ? "ring-red-500 ring-2 border-red-500" : "";
-    return `${baseClass} ${validationClass}`.trim();
+    if (isEmpty) {
+      return `${baseClasses} ring-2 ring-red-500 border-red-500`.trim();
+    }
+    return baseClasses;
   };
+
+  // Check individual field states for debugging
+  const isDescriptionEmpty = isFieldEmpty(item.description);
+  const isCategoryEmpty = isFieldEmpty(item.category);
+  const isDonorEmpty = isFieldEmpty(item.donorName);
+  const isCustomDonorEmpty = item.donorName === 'custom' && isFieldEmpty(item.customDonorText);
+  const isWeightEmpty = isFieldEmpty(item.weightLbs);
+  const isExpirationEmpty = isFieldEmpty(item.expirationDate);
 
   return (
     <div className="bg-slate-800 p-5 rounded-xl shadow-md border border-slate-700 relative transition-shadow hover:shadow-lg">
@@ -115,7 +125,10 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
                 onChange={handleInputChange}
                 placeholder="e.g., Campbell's Tomato Soup, 10.75 oz can"
                 required
-                className={getValidationClasses(item.description, isItemProcessing ? "bg-slate-700 opacity-75" : "")}
+                className={getFieldClasses(
+                  item.description, 
+                  isItemProcessing ? "bg-slate-700 opacity-75" : ""
+                )}
             />
         </div>
 
@@ -125,7 +138,10 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
           value={item.category} 
           onChange={handleInputChange} 
           required
-          className={getValidationClasses(item.category, isItemProcessing ? "bg-slate-700 opacity-75" : "")}
+          className={getFieldClasses(
+            item.category, 
+            isItemProcessing ? "bg-slate-700 opacity-75" : ""
+          )}
         >
           <option value="" disabled>Select Category</option>
           {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
@@ -137,7 +153,10 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
           value={item.donorName} 
           onChange={handleInputChange} 
           required
-          className={getValidationClasses(item.donorName, isItemProcessing ? "bg-slate-700 opacity-75" : "")}
+          className={getFieldClasses(
+            item.donorName, 
+            isItemProcessing ? "bg-slate-700 opacity-75" : ""
+          )}
         >
            <option value="" disabled>Select Donor</option>
            {DONORS.map(don => <option key={don} value={don}>{don === 'custom' ? "Custom (Enter manually)" : don}</option>)}
@@ -152,7 +171,10 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
                     onChange={handleInputChange}
                     placeholder="Enter donor name manually"
                     required
-                    className={getValidationClasses(item.customDonorText, isItemProcessing ? "bg-slate-700 opacity-75" : "")}
+                    className={getFieldClasses(
+                      item.customDonorText, 
+                      isItemProcessing ? "bg-slate-700 opacity-75" : ""
+                    )}
                 />
             </div>
         )}
@@ -167,7 +189,10 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
             step="0.01"
             min="0"
             placeholder="0.00"
-            className={getValidationClasses(item.weightLbs, isItemProcessing ? "bg-slate-700 opacity-75" : "")}
+            className={getFieldClasses(
+              item.weightLbs, 
+              isItemProcessing ? "bg-slate-700 opacity-75" : ""
+            )}
           />
         </div>
         
@@ -193,7 +218,10 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
                 value={item.expirationDate}
                 onChange={handleInputChange}
                 required
-                className={getValidationClasses(item.expirationDate, isItemProcessing ? "bg-slate-700 opacity-75" : "")}
+                className={getFieldClasses(
+                  item.expirationDate, 
+                  isItemProcessing ? "bg-slate-700 opacity-75" : ""
+                )}
             />
         </div>
 
@@ -202,6 +230,18 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
             <p className="text-slate-400 text-xs mt-0.5">({item.weightLbs || 0} lbs &times; {item.quantity} units)</p>
         </div>
       </div>
+
+      {/* Debug info - remove this after testing */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-4 p-2 bg-slate-900 rounded text-xs text-slate-400">
+          <div>Debug validation:</div>
+          <div>Description empty: {isDescriptionEmpty ? 'YES' : 'NO'}</div>
+          <div>Category empty: {isCategoryEmpty ? 'YES' : 'NO'}</div>
+          <div>Donor empty: {isDonorEmpty ? 'YES' : 'NO'}</div>
+          <div>Weight empty: {isWeightEmpty ? 'YES' : 'NO'}</div>
+          <div>Expiration empty: {isExpirationEmpty ? 'YES' : 'NO'}</div>
+        </div>
+      )}
     </div>
   );
 };
