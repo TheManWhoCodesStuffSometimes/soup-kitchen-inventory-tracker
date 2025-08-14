@@ -32,9 +32,19 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
     onUpdate(item.id, name as keyof InventoryItem, value);
   };
   
+  // WEIGHT INPUT FIX: Automatically round weight inputs to prevent validation errors
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    onUpdate(item.id, name as keyof InventoryItem, parseFloat(value) || 0);
+    let parsedValue = parseFloat(value) || 0;
+    
+    // AUTOMATIC ROUNDING FIX: Round weight inputs to 2 decimal places
+    // This prevents validation errors when users type very precise decimals
+    if (name === 'weightLbs' && parsedValue > 0) {
+      parsedValue = Math.round(parsedValue * 100) / 100;
+      console.log(`📏 Manual weight rounded: ${value} → ${parsedValue}`);
+    }
+    
+    onUpdate(item.id, name as keyof InventoryItem, parsedValue);
   };
 
   const totalItemWeight = (item.weightLbs * item.quantity).toFixed(2);
@@ -184,7 +194,7 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
             label="Weight per Unit (lbs)"
             name="weightLbs"
             type="number"
-            value={item.weightLbs > 0 ? item.weightLbs.toString() : ''}
+            value={item.weightLbs > 0 ? item.weightLbs.toFixed(2) : ''} 
             onChange={handleNumberChange}
             step="0.01"
             min="0"
