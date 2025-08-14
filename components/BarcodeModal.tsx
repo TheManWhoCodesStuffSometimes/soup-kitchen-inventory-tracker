@@ -33,7 +33,13 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detectedProduct, setDetectedProduct] = useState<ProductInfo | null>(null);
+  
+  // CRITICAL: These flags prevent the infinite loading loop that keeps happening
+  // DO NOT REMOVE OR MODIFY WITHOUT UNDERSTANDING THE RACE CONDITIONS
   const [isLookingUp, setIsLookingUp] = useState(false);
+  const [hasLookedUp, setHasLookedUp] = useState(false); // NEW: Prevents re-lookup of same barcode
+  const [currentLookupBarcode, setCurrentLookupBarcode] = useState<string | null>(null); // NEW: Track what we're looking up
+  
   const [recentDetections, setRecentDetections] = useState<{code: string, confidence: number, timestamp: number}[]>([]);
   const [isProcessingDetection, setIsProcessingDetection] = useState(false);
   const [scanningGuidance, setScanningGuidance] = useState<string>('Position barcode in center');
@@ -113,15 +119,34 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     return 'Other';
   };
 
-  // Lookup barcode via Open Food Facts API
+  // CRITICAL FUNCTION: This is where the infinite loop bug keeps happening!
+  // The issue was that multiple calls could happen simultaneously and state checks weren't comprehensive
+  // DO NOT MODIFY without understanding these race conditions:
   const lookupBarcode = async (barcode: string) => {
-    // Prevent multiple simultaneous lookups
-    if (isLookingUp || modalState === 'looking-up' || modalState === 'product-found') {
+    console.log('🔍 lookupBarcode called with:', barcode);
+    console.log('🔍 Current state - isLookingUp:', isLookingUp, 'hasLookedUp:', hasLookedUp, 'modalState:', modalState, 'currentLookupBarcode:', currentLookupBarcode);
+    
+    // COMPREHENSIVE PREVENTION: Check ALL conditions that should prevent lookup
+    // This prevents the infinite loop by being very explicit about when NOT to run
+    if (
+      isLookingUp ||                           // Already looking up something
+      hasLookedUp ||                           // Already completed a lookup in this session
+      modalState === 'looking-up' ||           // UI is in lookup state
+      modalState === 'product-found' ||        // Already found a product
+      modalState === 'error' ||               // In error state
+      currentLookupBarcode === barcode ||      // Already looking up this exact barcode
+      currentLookupBarcode !== null            // Looking up any barcode
+    ) {
+      console.log('🚫 Lookup prevented - conditions not met');
       return;
     }
     
-    console.log('Starting lookup for barcode:', barcode);
+    console.log('✅ Starting lookup for barcode:', barcode);
+    
+    // SET ALL FLAGS IMMEDIATELY to prevent race conditions
     setIsLookingUp(true);
+    setHasLookedUp(true);  // Mark as "has attempted lookup" immediately
+    setCurrentLookupBarcode(barcode);
     setModalState('looking-up');
     setError(null);
 
@@ -137,20 +162,23 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
           weight: data.product.quantity || '',
           barcode
         };
-        console.log('Product found:', productInfo);
+        console.log('✅ Product found:', productInfo);
         setDetectedProduct(productInfo);
         setModalState('product-found');
       } else {
-        console.log('Product not found in database');
+        console.log('❌ Product not found in database');
         setError(`Product not found in database. Barcode: ${barcode}`);
         setModalState('error');
       }
     } catch (err) {
-      console.error('Lookup error:', err);
+      console.error('💥 Lookup error:', err);
       setError('Failed to lookup product. Please try again or enter manually.');
       setModalState('error');
     } finally {
+      // IMPORTANT: Only clear isLookingUp and currentLookupBarcode, but keep hasLookedUp=true
+      // This prevents multiple lookups while allowing the user to restart if needed
       setIsLookingUp(false);
+      setCurrentLookupBarcode(null);
       setIsProcessingDetection(false);
     }
   };
@@ -164,8 +192,9 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
 
   // Barcode detection - NO CONFIDENCE CHECK, just consistency
   const handleBarcodeDetected = useCallback((result: any) => {
-    // Only process if we're in scanning mode
-    if (modalState !== 'scanning' || isProcessingDetection || isLookingUp) {
+    // CRITICAL: Only process if we're in scanning mode and haven't looked up yet
+    // This prevents detection from continuing after we've already found something
+    if (modalState !== 'scanning' || isProcessingDetection || isLookingUp || hasLookedUp) {
       return;
     }
 
@@ -191,8 +220,8 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
       // Check for 3 consistent readings of the same code
       const sameCodeDetections = updated.filter(d => d.code === code);
       
-      if (sameCodeDetections.length >= 3) {
-        console.log('Barcode detection complete:', code);
+      if (sameCodeDetections.length >= 3 && !hasLookedUp) { // ADDED: Check hasLookedUp here too
+        console.log('🎯 Barcode detection complete:', code);
         setScanningGuidance('Found! Processing...');
         setIsProcessingDetection(true);
         
@@ -209,7 +238,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
       }
     });
     
-  }, [modalState, isProcessingDetection, isLookingUp]);
+  }, [modalState, isProcessingDetection, isLookingUp, hasLookedUp]); // ADDED hasLookedUp dependency
 
   // Check camera permissions
   const checkCameraPermission = async () => {
@@ -336,14 +365,20 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     setScanningGuidance('Position barcode in center');
   };
 
-  // Clean restart of scanner
+  // CRITICAL FUNCTION: This is the "clean restart" that resets ALL the flags
+  // This is what allows the user to try scanning again after an error or success
   const handleRescan = () => {
-    console.log('Restarting scan...');
+    console.log('🔄 FULL RESCAN - Resetting all flags');
     stopScanner();
+    
+    // RESET ALL STATE - This is crucial for preventing the loop
     setDetectedProduct(null);
     setError(null);
     setRecentDetections([]);
     setIsProcessingDetection(false);
+    setIsLookingUp(false);
+    setHasLookedUp(false);           // CRITICAL: Reset this flag
+    setCurrentLookupBarcode(null);   // CRITICAL: Reset this flag
     setModalState('scanning');
     setScanningGuidance('Position barcode in center');
     
@@ -364,13 +399,16 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     };
   }, [isOpen, startScanner]);
 
-  // Reset modal state when closed/opened
+  // CRITICAL: Reset modal state when closed/opened - this prevents state leakage between sessions
   useEffect(() => {
     if (isOpen) {
+      console.log('🔄 Modal opened - resetting all state');
       setModalState('scanning');
       setDetectedProduct(null);
       setError(null);
       setIsLookingUp(false);
+      setHasLookedUp(false);           // RESET: Prevents previous session from affecting new one
+      setCurrentLookupBarcode(null);   // RESET: Clear any previous lookup tracking
       setRecentDetections([]);
       setIsProcessingDetection(false);
       setScanningGuidance('Position barcode in center');
@@ -379,9 +417,13 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
 
   const handleClose = () => {
     stopScanner();
+    
+    // FULL RESET on close - prevents any state from leaking to next session
     setDetectedProduct(null);
     setError(null);
     setIsLookingUp(false);
+    setHasLookedUp(false);
+    setCurrentLookupBarcode(null);
     setRecentDetections([]);
     setIsProcessingDetection(false);
     setModalState('scanning');
@@ -462,6 +504,10 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
           <div className="flex flex-col items-center justify-center py-8 space-y-4">
             <Spinner className="w-8 h-8" />
             <p className="text-slate-300 font-semibold">Looking up product...</p>
+            {/* DEBUG INFO - Remove in production */}
+            <div className="text-xs text-slate-500">
+              Debug: isLookingUp={isLookingUp.toString()}, hasLookedUp={hasLookedUp.toString()}
+            </div>
           </div>
         )}
 
