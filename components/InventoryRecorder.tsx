@@ -361,142 +361,158 @@ export const InventoryRecorder: React.FC<InventoryRecorderProps> = ({ onNavigate
     });
 
     return (
-        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 font-sans">
-            {/* Toast notification for background processing errors */}
-            {toastMessage && (
-                <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg border ${
-                    toastMessage.type === 'error' 
-                        ? 'bg-red-900/90 border-red-600 text-red-200' 
-                        : 'bg-green-900/90 border-green-600 text-green-200'
-                }`}>
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{toastMessage.text}</span>
-                        <button 
-                            onClick={() => setToastMessage(null)}
-                            className="ml-3 text-lg hover:opacity-70"
-                        >
-                            ×
-                        </button>
+        <div className="min-h-screen bg-slate-900">
+            {/* Mobile-optimized container */}
+            <div className="max-w-7xl mx-auto p-3 sm:p-4 lg:p-6 xl:p-8 font-sans">
+                {/* Toast notification for background processing errors */}
+                {toastMessage && (
+                    <div className={`fixed top-4 left-4 right-4 sm:top-4 sm:right-4 sm:left-auto sm:w-96 z-50 p-4 rounded-lg shadow-lg border ${
+                        toastMessage.type === 'error' 
+                            ? 'bg-red-900/90 border-red-600 text-red-200' 
+                            : 'bg-green-900/90 border-green-600 text-green-200'
+                    }`}>
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium pr-2">{toastMessage.text}</span>
+                            <button 
+                                onClick={() => setToastMessage(null)}
+                                className="text-lg hover:opacity-70 flex-shrink-0 min-w-[24px] touch-manipulation"
+                            >
+                                ×
+                            </button>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Header with Back Button */}
-            <div className="flex items-center justify-between mb-10">
-                <Button 
-                    onClick={onNavigateHome} 
-                    variant="secondary" 
-                    className="text-sm"
-                >
-                    ← Back to Main
-                </Button>
-                <div className="flex-1">
-                    <header className="text-center">
-                        <h1 className="text-4xl font-extrabold tracking-tight text-slate-100 sm:text-5xl">Inventory Recorder</h1>
-                        <p className="mt-3 text-lg text-slate-300 max-w-2xl mx-auto">Intelligently track and manage your food donations with ease.</p>
-                        <div className="mt-4 h-1 w-24 bg-amber-500 mx-auto rounded-full" />
-                    </header>
-                </div>
-                <div className="w-32"></div> {/* Spacer for centering */}
-            </div>
-
-            <div className="text-center text-slate-400 mb-8 font-medium">
-                {currentDate}
-            </div>
-            
-            <form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 lg:grid-cols-3 lg:gap-8">
-                    {/* Left Column: Items */}
-                    <div className="lg:col-span-2 space-y-6">
-                        {items.map((item, index) => (
-                            <InventoryItemCard
-                                key={item.id}
-                                item={item}
-                                itemIndex={index}
-                                onUpdate={handleUpdateItem}
-                                onDelete={handleDeleteItem}
-                                onOpenCamera={() => handleOpenModal('camera', index)}
-                                onOpenVoice={() => handleOpenModal('voice', index)}
-                                onOpenBarcode={() => handleOpenModal('barcode', index)}
-                                isProcessing={processingItems}
-                                isFieldEmpty={isFieldEmpty}
-                            />
-                        ))}
-
-                         <Button
-                            type="button"
-                            onClick={handleAddItem}
-                            variant="secondary"
-                            className="w-full my-6 text-base py-3 border-2 border-dashed border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300 hover:bg-slate-800"
-                        >
-                            <PlusIcon className="w-5 h-5"/> Add Another Item
-                        </Button>
+                {/* Header with Back Button - Mobile optimized */}
+                <div className="flex items-center justify-between mb-6 sm:mb-8 lg:mb-10">
+                    <Button 
+                        onClick={onNavigateHome} 
+                        variant="secondary" 
+                        className="text-sm min-h-[44px] touch-manipulation"
+                    >
+                        ← Back
+                    </Button>
+                    <div className="flex-1 px-2 sm:px-4">
+                        <header className="text-center">
+                            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-100">
+                                Inventory Recorder
+                            </h1>
+                            <p className="mt-2 sm:mt-3 text-sm sm:text-base lg:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
+                                Intelligently track and manage your food donations with ease.
+                            </p>
+                            <div className="mt-3 sm:mt-4 h-1 w-16 sm:w-24 bg-amber-500 mx-auto rounded-full" />
+                        </header>
                     </div>
+                    <div className="w-16 sm:w-20 lg:w-32"></div> {/* Spacer for centering */}
+                </div>
 
-                    {/* Right Column: Summary & Submit */}
-                    <div className="lg:col-span-1 mt-8 lg:mt-0">
-                        <div className="sticky top-8 space-y-6">
-                            <SummaryComponent summary={summary} />
+                <div className="text-center text-slate-400 mb-6 sm:mb-8 font-medium text-sm sm:text-base">
+                    {currentDate}
+                </div>
+                
+                <form onSubmit={handleSubmit}>
+                    {/* Mobile-first layout */}
+                    <div className="space-y-6 lg:grid lg:grid-cols-3 lg:gap-8 lg:space-y-0">
+                        {/* Items Column - Full width on mobile, 2/3 on desktop */}
+                        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+                            {items.map((item, index) => (
+                                <InventoryItemCard
+                                    key={item.id}
+                                    item={item}
+                                    itemIndex={index}
+                                    onUpdate={handleUpdateItem}
+                                    onDelete={handleDeleteItem}
+                                    onOpenCamera={() => handleOpenModal('camera', index)}
+                                    onOpenVoice={() => handleOpenModal('voice', index)}
+                                    onOpenBarcode={() => handleOpenModal('barcode', index)}
+                                    isProcessing={processingItems}
+                                    isFieldEmpty={isFieldEmpty}
+                                />
+                            ))}
 
-                            <div className="text-center">
-                                {/* Validation Status Indicator */}
-                                <div className={`mb-4 p-3 rounded-lg border-2 font-semibold text-sm transition-all duration-300 ${
-                                    allFieldsComplete 
-                                        ? 'bg-green-900/30 border-green-500 text-green-300 shadow-green-500/20 shadow-lg' 
-                                        : 'bg-red-900/30 border-red-500 text-red-300 shadow-red-500/20 shadow-lg animate-pulse'
-                                }`}>
-                                    {allFieldsComplete ? (
-                                        <span className="flex items-center justify-center space-x-2">
-                                            <span className="text-green-400">✓</span>
-                                            <span>All fields are filled</span>
-                                        </span>
-                                    ) : (
-                                        <span className="flex items-center justify-center space-x-2">
-                                            <span className="text-red-400">⚠</span>
-                                            <span>{incompleteFieldsCount} field{incompleteFieldsCount !== 1 ? 's' : ''} not filled out</span>
-                                        </span>
-                                    )}
-                                </div>
+                            <Button
+                                type="button"
+                                onClick={handleAddItem}
+                                variant="secondary"
+                                className="w-full my-4 sm:my-6 text-sm sm:text-base py-3 border-2 border-dashed border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300 hover:bg-slate-800 min-h-[48px] touch-manipulation"
+                            >
+                                <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5"/> Add Another Item
+                            </Button>
+                        </div>
 
-                                {statusMessage && (
-                                    <div className={`p-3 rounded-md mb-4 text-sm font-medium ${statusMessage.type === 'success' ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
-                                        {statusMessage.text}
+                        {/* Summary & Submit Column - Full width on mobile, 1/3 on desktop */}
+                        <div className="lg:col-span-1">
+                            {/* Mobile: Not sticky, Desktop: Sticky */}
+                            <div className="lg:sticky lg:top-8 space-y-4 sm:space-y-6">
+                                <SummaryComponent summary={summary} />
+
+                                <div className="text-center">
+                                    {/* Validation Status Indicator - Mobile optimized */}
+                                    <div className={`mb-4 p-3 rounded-lg border-2 font-semibold text-sm transition-all duration-300 ${
+                                        allFieldsComplete 
+                                            ? 'bg-green-900/30 border-green-500 text-green-300 shadow-green-500/20 shadow-lg' 
+                                            : 'bg-red-900/30 border-red-500 text-red-300 shadow-red-500/20 shadow-lg animate-pulse'
+                                    }`}>
+                                        {allFieldsComplete ? (
+                                            <span className="flex items-center justify-center space-x-2">
+                                                <span className="text-green-400">✓</span>
+                                                <span>All fields are filled</span>
+                                            </span>
+                                        ) : (
+                                            <span className="flex items-center justify-center space-x-2">
+                                                <span className="text-red-400">⚠</span>
+                                                <span className="text-center">
+                                                    {incompleteFieldsCount} field{incompleteFieldsCount !== 1 ? 's' : ''} not filled out
+                                                </span>
+                                            </span>
+                                        )}
                                     </div>
-                                )}
-                                <div className="flex justify-center">
-                                     <Button type="submit" variant="primary" disabled={isLoading || items.length === 0} className="w-full text-lg py-3 font-bold">
-                                        {isLoading ? <Spinner /> : 'Submit All Items'}
-                                    </Button>
+
+                                    {statusMessage && (
+                                        <div className={`p-3 rounded-md mb-4 text-sm font-medium ${statusMessage.type === 'success' ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
+                                            {statusMessage.text}
+                                        </div>
+                                    )}
+                                    <div className="flex justify-center">
+                                        <Button 
+                                            type="submit" 
+                                            variant="primary" 
+                                            disabled={isLoading || items.length === 0} 
+                                            className="w-full text-base sm:text-lg py-3 font-bold min-h-[48px] touch-manipulation"
+                                        >
+                                            {isLoading ? <Spinner /> : 'Submit All Items'}
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </form>
+                </form>
 
-            {/* Barcode Scanner Modal */}
-            <BarcodeModal 
-                isOpen={isBarcodeOpen} 
-                onClose={() => setIsBarcodeOpen(false)}
-                onSuccess={handleBarcodeSuccess}
-                onPhotoInstead={handlePhotoInstead}
-            />
+                {/* Barcode Scanner Modal */}
+                <BarcodeModal 
+                    isOpen={isBarcodeOpen} 
+                    onClose={() => setIsBarcodeOpen(false)}
+                    onSuccess={handleBarcodeSuccess}
+                    onPhotoInstead={handlePhotoInstead}
+                />
 
-            {/* Camera Modal */}
-            <CameraModal 
-                isOpen={isCameraOpen} 
-                onClose={() => setIsCameraOpen(false)}
-                onCapture={handleImageProcess}
-                onSuccess={handleImageSuccess}
-            />
+                {/* Camera Modal */}
+                <CameraModal 
+                    isOpen={isCameraOpen} 
+                    onClose={() => setIsCameraOpen(false)}
+                    onCapture={handleImageProcess}
+                    onSuccess={handleImageSuccess}
+                />
 
-            {/* Voice Modal */}
-            <VoiceModal
-                isOpen={isVoiceOpen}
-                onClose={() => setIsVoiceOpen(false)}
-                onProcess={handleVoiceProcess}
-                onSuccess={handleVoiceSuccess}
-            />
+                {/* Voice Modal */}
+                <VoiceModal
+                    isOpen={isVoiceOpen}
+                    onClose={() => setIsVoiceOpen(false)}
+                    onProcess={handleVoiceProcess}
+                    onSuccess={handleVoiceSuccess}
+                />
+            </div>
         </div>
     );
 };
