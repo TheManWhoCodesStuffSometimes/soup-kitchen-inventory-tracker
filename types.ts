@@ -1,6 +1,6 @@
 export interface InventoryItem {
   id: string;
-  category: string;
+  category: string; // This will become "foodType" in future but keeping for compatibility
   donorName: string;
   customDonorText: string;
   description: string;
@@ -18,6 +18,9 @@ export type Donor = 'Ridley\'s' | 'Perkins' | 'Safeway' | 'UW Catering' | 'Train
 
 export type Category = 'Canned Goods' | 'Fresh Produce' | 'Dairy' | 'Meat' | 'Bakery' | 'Frozen' | 'Pantry Staples' | 'Beverages' | 'Snacks' | 'Other';
 
+// NEW: Soup Kitchen Category type
+export type SoupKitchenCategory = 'Perishable' | 'Catering/Banquet' | 'Shelf Stable';
+
 export interface VoiceAnalysisResult {
   itemName: string;
   category: Category | 'Other';
@@ -30,4 +33,29 @@ export interface ImageAnalysisResult {
     description: string;
     category: Category | 'Other';
     weightLbs: number;
+}
+
+// NEW: Updated Dashboard Item interface to match Airtable response
+export interface DashboardItem {
+  id: string;
+  createdTime: string;
+  "Item ID": string;
+  "Form ID": string;
+  "Total Items in Submission": number;
+  "Total Weight in Submission": number;
+  "Description": string;
+  "Food Type": string; // NEW: Renamed from "Category"
+  "Soup Kitchen Category": SoupKitchenCategory; // NEW: Added
+  "Donor Name": string;
+  "Weight (lbs)": number;
+  "Quantity": number;
+  "Estimated Value": number;
+  "Price Per Unit": number;
+  "Confidence Level": string;
+  "Pricing Source": string;
+  "Search Results Summary": string;
+  "Pricing Notes": string;
+  "Processing Date": string;
+  "Created At": string;
+  "Last Modified": string;
 }
