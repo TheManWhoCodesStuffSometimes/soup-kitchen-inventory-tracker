@@ -106,7 +106,8 @@ export const InventoryRecorder: React.FC<InventoryRecorderProps> = ({ onNavigate
         }));
     };
 
-    // Parse product weight from string (from barcode scanner)
+    // WEIGHT PARSING FIX: Updated parseProductWeight with automatic rounding
+    // This is the duplicate function that handles barcode weight parsing in InventoryRecorder
     const parseProductWeight = (quantityString: string): number => {
         if (!quantityString || typeof quantityString !== 'string') return 0;
 
@@ -117,38 +118,51 @@ export const InventoryRecorder: React.FC<InventoryRecorderProps> = ({ onNavigate
         const value = parseFloat(match[1]);
         const unit = match[2];
 
+        let weightInPounds = 0;
+
         switch (unit) {
             case 'g':
             case 'gram':
             case 'grams':
-                return value * 0.00220462;
+                weightInPounds = value * 0.00220462;
+                break;
             case 'kg':
             case 'kilogram':
             case 'kilograms':
-                return value * 2.20462;
+                weightInPounds = value * 2.20462;
+                break;
             case 'oz':
             case 'ounce':
             case 'ounces':
-                return value * 0.0625;
+                weightInPounds = value * 0.0625;
+                break;
             case 'lb':
             case 'lbs':
             case 'pound':
             case 'pounds':
-                return value;
+                weightInPounds = value;
+                break;
             case 'ml':
             case 'milliliter':
             case 'milliliters':
-                return value * 0.00220462;
+                weightInPounds = value * 0.00220462;
+                break;
             case 'l':
             case 'liter':
             case 'liters':
-                return value * 2.20462;
+                weightInPounds = value * 2.20462;
+                break;
             case 'fl':
             case 'floz':
-                return value * 0.0652;
+                weightInPounds = value * 0.0652;
+                break;
             default:
                 return 0;
         }
+
+        // CRITICAL ROUNDING FIX: Always round to 2 decimal places
+        // This prevents validation errors from overly precise decimals
+        return Math.round(weightInPounds * 100) / 100;
     };
 
     const handleOpenModal = (modal: 'camera' | 'voice' | 'barcode', index: number) => {
@@ -178,7 +192,7 @@ export const InventoryRecorder: React.FC<InventoryRecorderProps> = ({ onNavigate
             handleUpdateItem(currentItem.id, 'category', 'Other');
         }
 
-        // Parse and set weight if available
+        // Parse and set weight if available (with automatic rounding)
         if (productInfo.weight) {
             const weight = parseProductWeight(productInfo.weight);
             if (weight > 0) {
@@ -192,7 +206,7 @@ export const InventoryRecorder: React.FC<InventoryRecorderProps> = ({ onNavigate
       const currentItem = items[activeItemIndex];
       if (!currentItem) return;
     
-      // Always update description and weight
+      // Always update description and weight (weight already rounded from API)
       handleUpdateItem(currentItem.id, 'description', result.itemName);
       handleUpdateItem(currentItem.id, 'weightLbs', result.estimatedWeightLbs);
       
@@ -228,6 +242,7 @@ export const InventoryRecorder: React.FC<InventoryRecorderProps> = ({ onNavigate
         const currentItem = items[activeItemIndex];
         if (!currentItem) return;
 
+        // Update item fields (weight already rounded from API)
         handleUpdateItem(currentItem.id, 'description', result.description);
         handleUpdateItem(currentItem.id, 'weightLbs', result.weightLbs);
         if (CATEGORIES.includes(result.category as Category)) {
@@ -290,10 +305,14 @@ export const InventoryRecorder: React.FC<InventoryRecorderProps> = ({ onNavigate
         setIsCameraOpen(true);
     };
     
-    // Validation functions
+    // VALIDATION FIX: Updated validation logic to handle rounded weights properly
     const isFieldEmpty = (value: any): boolean => {
         if (typeof value === 'string') return value.trim() === '';
-        if (typeof value === 'number') return value <= 0;
+        if (typeof value === 'number') {
+            // WEIGHT VALIDATION FIX: Consider values greater than 0.001 as valid
+            // This accounts for very light items that might round to small decimals
+            return value <= 0.001; // Changed from <= 0 to <= 0.001
+        }
         return !value;
     };
 
