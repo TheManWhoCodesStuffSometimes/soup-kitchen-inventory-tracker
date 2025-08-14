@@ -262,16 +262,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
     );
   }
 
-  return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 font-sans">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <Button onClick={onNavigateHome} variant="secondary">
-          ← Back to Main
-        </Button>
-        <div className="flex-1">
-          <header className="text-center">
-            <h1 className="text-4xl font-extrabold tracking-tight text-slate-100 sm:text-5xl">Inventory Dashboard</h1>
+ Dashboard</h1>
             <p className="mt-3 text-lg text-slate-300">View and analyze your recorded inventory data</p>
             <div className="mt-4 h-1 w-24 bg-blue-500 mx-auto rounded-full" />
           </header>
@@ -282,224 +273,315 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
       {/* Filters and Export - UPDATED with new filters */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-8">
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
-          <Input
-            label="Start Date"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-          <Input
-            label="End Date" 
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
-          
-          {/* NEW: Soup Kitchen Category Filter */}
-          <Select
-            label="SK Category"
-            value={soupKitchenCategoryFilter}
-            onChange={(e) => setSoupKitchenCategoryFilter(e.target.value)}
-          >
-            <option value="">All SK Categories</option>
-            <option value="Perishable">Perishable</option>
-            <option value="Catering/Banquet">Catering/Banquet</option>
-            <option value="Shelf Stable">Shelf Stable</option>
-          </Select>
-          
-          {/* NEW: Food Type Filter */}
-          <Select
-            label="Food Type"
-            value={foodTypeFilter}
-            onChange={(e) => setFoodTypeFilter(e.target.value)}
-          >
-            <option value="">All Food Types</option>
-            {getUniqueValues("Food Type").map(type => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </Select>
-          
-          <Button
-            onClick={clearAllFilters}
-            variant="secondary"
-            className="h-10"
-          >
-            Clear All
-          </Button>
-          <Button
-            onClick={exportToCSV}
-            variant="primary"
-            className="h-10"
-            disabled={filteredItems.length === 0}
-          >
-            📄 Export CSV
-          </Button>
+            {/* Date filters - Mobile: Full width rows, Desktop: Two columns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:contents">
+              <Input
+                label="Start Date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+              <Input
+                label="End Date" 
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+            
+            {/* Category filters - Mobile: Full width rows, Desktop: Two columns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:contents">
+              {/* NEW: Soup Kitchen Category Filter */}
+              <Select
+                label="SK Category"
+                value={soupKitchenCategoryFilter}
+                onChange={(e) => setSoupKitchenCategoryFilter(e.target.value)}
+              >
+                <option value="">All SK Categories</option>
+                <option value="Perishable">Perishable</option>
+                <option value="Catering/Banquet">Catering/Banquet</option>
+                <option value="Shelf Stable">Shelf Stable</option>
+              </Select>
+              
+              {/* NEW: Food Type Filter */}
+              <Select
+                label="Food Type"
+                value={foodTypeFilter}
+                onChange={(e) => setFoodTypeFilter(e.target.value)}
+              >
+                <option value="">All Food Types</option>
+                {getUniqueValues("Food Type").map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </Select>
+            </div>
+            
+            {/* Action buttons - Mobile: Full width stack, Desktop: Two columns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:contents">
+              <Button
+                onClick={clearAllFilters}
+                variant="secondary"
+                className="h-12 lg:h-10 touch-manipulation"
+              >
+                Clear All
+              </Button>
+              <Button
+                onClick={exportToCSV}
+                variant="primary"
+                className="h-12 lg:h-10 touch-manipulation"
+                disabled={filteredItems.length === 0}
+              >
+                📄 Export CSV
+              </Button>
+            </div>
         </div>
       </div>
 
-      {/* Summary Statistics - ENHANCED with SK Category breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-          <h3 className="text-sm font-medium text-slate-400 mb-2">Total Submissions</h3>
-          <p className="text-3xl font-bold text-amber-500">{summaryStats.uniqueForms}</p>
-        </div>
-        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-          <h3 className="text-sm font-medium text-slate-400 mb-2">Total Items</h3>
-          <p className="text-3xl font-bold text-amber-500">{summaryStats.totalItems}</p>
-        </div>
-        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-          <h3 className="text-sm font-medium text-slate-400 mb-2">Total Weight</h3>
-          <p className="text-3xl font-bold text-amber-500">{summaryStats.totalWeight.toFixed(1)} lbs</p>
-        </div>
-        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-          <h3 className="text-sm font-medium text-slate-400 mb-2">Total Value</h3>
-          <p className="text-3xl font-bold text-amber-500">{formatCurrency(summaryStats.totalValue)}</p>
-        </div>
-      </div>
-
-      {/* NEW: Soup Kitchen Category Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-green-900/30 border border-green-600/30 p-6 rounded-xl">
-          <h3 className="text-sm font-medium text-green-300 mb-2">🥬 Perishable</h3>
-          <div className="flex justify-between items-end">
-            <div>
-              <p className="text-2xl font-bold text-green-400">{summaryStats.perishable.count}</p>
-              <p className="text-xs text-green-300">items</p>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-semibold text-green-400">{formatCurrency(summaryStats.perishable.value)}</p>
-              <p className="text-xs text-green-300">value</p>
-            </div>
+        {/* Summary Statistics - Mobile responsive grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-4 sm:mb-6">
+          <div className="bg-slate-800 p-3 sm:p-6 rounded-xl border border-slate-700">
+            <h3 className="text-xs sm:text-sm font-medium text-slate-400 mb-1 sm:mb-2">Total Submissions</h3>
+            <p className="text-xl sm:text-3xl font-bold text-amber-500">{summaryStats.uniqueForms}</p>
           </div>
-        </div>
-        
-        <div className="bg-purple-900/30 border border-purple-600/30 p-6 rounded-xl">
-          <h3 className="text-sm font-medium text-purple-300 mb-2">🍽️ Catering/Banquet</h3>
-          <div className="flex justify-between items-end">
-            <div>
-              <p className="text-2xl font-bold text-purple-400">{summaryStats.catering.count}</p>
-              <p className="text-xs text-purple-300">items</p>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-semibold text-purple-400">{formatCurrency(summaryStats.catering.value)}</p>
-              <p className="text-xs text-purple-300">value</p>
-            </div>
+          <div className="bg-slate-800 p-3 sm:p-6 rounded-xl border border-slate-700">
+            <h3 className="text-xs sm:text-sm font-medium text-slate-400 mb-1 sm:mb-2">Total Items</h3>
+            <p className="text-xl sm:text-3xl font-bold text-amber-500">{summaryStats.totalItems}</p>
           </div>
-        </div>
-        
-        <div className="bg-blue-900/30 border border-blue-600/30 p-6 rounded-xl">
-          <h3 className="text-sm font-medium text-blue-300 mb-2">📦 Shelf Stable</h3>
-          <div className="flex justify-between items-end">
-            <div>
-              <p className="text-2xl font-bold text-blue-400">{summaryStats.shelfStable.count}</p>
-              <p className="text-xs text-blue-300">items</p>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-semibold text-blue-400">{formatCurrency(summaryStats.shelfStable.value)}</p>
-              <p className="text-xs text-blue-300">value</p>
-            </div>
+          <div className="bg-slate-800 p-3 sm:p-6 rounded-xl border border-slate-700">
+            <h3 className="text-xs sm:text-sm font-medium text-slate-400 mb-1 sm:mb-2">Total Weight</h3>
+            <p className="text-xl sm:text-3xl font-bold text-amber-500">{summaryStats.totalWeight.toFixed(1)} lbs</p>
           </div>
-        </div>
-      </div>
-
-      {/* Items Table - UPDATED with new columns */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-        <div className="p-6 border-b border-slate-700">
-          <h2 className="text-2xl font-bold text-slate-100">
-            Inventory Items 
-            <span className="text-slate-400 text-lg ml-2">
-              ({filteredItems.length} items)
-            </span>
-          </h2>
+          <div className="bg-slate-800 p-3 sm:p-6 rounded-xl border border-slate-700">
+            <h3 className="text-xs sm:text-sm font-medium text-slate-400 mb-1 sm:mb-2">Total Value</h3>
+            <p className="text-xl sm:text-3xl font-bold text-amber-500">{formatCurrency(summaryStats.totalValue)}</p>
+          </div>
         </div>
 
-        {filteredItems.length === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-slate-400 text-lg">No items found for the selected filters.</p>
+        {/* NEW: Soup Kitchen Category Breakdown - Mobile responsive */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="bg-green-900/30 border border-green-600/30 p-4 sm:p-6 rounded-xl">
+            <h3 className="text-sm font-medium text-green-300 mb-2 flex items-center">
+              <span className="mr-2">🥬</span>Perishable
+            </h3>
+            <div className="flex justify-between items-end">
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-green-400">{summaryStats.perishable.count}</p>
+                <p className="text-xs text-green-300">items</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm sm:text-lg font-semibold text-green-400">{formatCurrency(summaryStats.perishable.value)}</p>
+                <p className="text-xs text-green-300">value</p>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Food Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">SK Category</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Donor</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Weight</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Qty</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Value</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Form ID</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700">
-                {filteredItems.map((item, index) => {
-                  // Color coding for SK Category
-                  const getSKCategoryColor = (category: string) => {
-                    switch (category) {
-                      case 'Perishable': return 'bg-green-900/50 text-green-300 border-green-600';
-                      case 'Catering/Banquet': return 'bg-purple-900/50 text-purple-300 border-purple-600';
-                      case 'Shelf Stable': return 'bg-blue-900/50 text-blue-300 border-blue-600';
-                      default: return 'bg-slate-700 text-slate-300 border-slate-600';
-                    }
-                  };
-                  
-                  return (
-                    <tr key={item.id} className={index % 2 === 0 ? 'bg-slate-800' : 'bg-slate-850'}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                        {formatDate(item["Processing Date"])}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-200 max-w-xs">
-                        <div className="truncate" title={item.Description}>
-                          {item.Description}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                        <span className="px-2 py-1 bg-slate-700 rounded-full text-xs">
-                          {item["Food Type"]}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs border ${getSKCategoryColor(item["Soup Kitchen Category"])}`}>
-                          {item["Soup Kitchen Category"]}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                        {item["Donor Name"]}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                        {item["Weight (lbs)"]} lbs
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                        {item.Quantity}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{formatCurrency(item["Estimated Value"])}</span>
-                          <span className="text-xs text-slate-400">
-                            {item["Confidence Level"]} confidence
+          
+          <div className="bg-purple-900/30 border border-purple-600/30 p-4 sm:p-6 rounded-xl">
+            <h3 className="text-sm font-medium text-purple-300 mb-2 flex items-center">
+              <span className="mr-2">🍽️</span>Catering/Banquet
+            </h3>
+            <div className="flex justify-between items-end">
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-purple-400">{summaryStats.catering.count}</p>
+                <p className="text-xs text-purple-300">items</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm sm:text-lg font-semibold text-purple-400">{formatCurrency(summaryStats.catering.value)}</p>
+                <p className="text-xs text-purple-300">value</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-blue-900/30 border border-blue-600/30 p-4 sm:p-6 rounded-xl md:col-span-1">
+            <h3 className="text-sm font-medium text-blue-300 mb-2 flex items-center">
+              <span className="mr-2">📦</span>Shelf Stable
+            </h3>
+            <div className="flex justify-between items-end">
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-blue-400">{summaryStats.shelfStable.count}</p>
+                <p className="text-xs text-blue-300">items</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm sm:text-lg font-semibold text-blue-400">{formatCurrency(summaryStats.shelfStable.value)}</p>
+                <p className="text-xs text-blue-300">value</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Items Table - Mobile optimized */}
+        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+          <div className="p-4 sm:p-6 border-b border-slate-700">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-100">
+              Inventory Items 
+              <span className="text-slate-400 text-sm sm:text-lg ml-2">
+                ({filteredItems.length} items)
+              </span>
+            </h2>
+          </div>
+
+          {filteredItems.length === 0 ? (
+            <div className="p-8 sm:p-12 text-center">
+              <p className="text-slate-400 text-base sm:text-lg">No items found for the selected filters.</p>
+            </div>
+          ) : (
+            <>
+              {/* Mobile: Card view, Desktop: Table view */}
+              <div className="block sm:hidden">
+                {/* Mobile Card Layout */}
+                <div className="divide-y divide-slate-700">
+                  {filteredItems.map((item, index) => {
+                    const getSKCategoryColor = (category: string) => {
+                      switch (category) {
+                        case 'Perishable': return 'bg-green-900/50 text-green-300 border-green-600';
+                        case 'Catering/Banquet': return 'bg-purple-900/50 text-purple-300 border-purple-600';
+                        case 'Shelf Stable': return 'bg-blue-900/50 text-blue-300 border-blue-600';
+                        default: return 'bg-slate-700 text-slate-300 border-slate-600';
+                      }
+                    };
+
+                    return (
+                      <div key={item.id} className="p-4 space-y-3">
+                        <div className="flex justify-between items-start">
+                          <h3 className="text-slate-200 font-medium text-sm leading-tight pr-2">
+                            {item.Description}
+                          </h3>
+                          <span className="text-xs text-slate-400 font-mono flex-shrink-0">
+                            {formatDate(item["Processing Date"]).split(',')[0]}
                           </span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400 font-mono">
-                        {item["Form ID"]}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-slate-400">Food Type:</span>
+                            <span className="ml-1 px-2 py-1 bg-slate-700 rounded text-slate-300">
+                              {item["Food Type"]}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">SK Category:</span>
+                            <span className={`ml-1 px-2 py-1 rounded text-xs border ${getSKCategoryColor(item["Soup Kitchen Category"])}`}>
+                              {item["Soup Kitchen Category"]}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
+                          <div>
+                            <span className="text-slate-400">Donor:</span>
+                            <span className="ml-1">{item["Donor Name"]}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Weight:</span>
+                            <span className="ml-1">{item["Weight (lbs)"]} lbs × {item.Quantity}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <div className="text-xs">
+                            <span className="text-slate-400">Value:</span>
+                            <span className="ml-1 font-medium text-slate-200">
+                              {formatCurrency(item["Estimated Value"])}
+                            </span>
+                            <span className="ml-1 text-slate-500">
+                              ({item["Confidence Level"]})
+                            </span>
+                          </div>
+                          <div className="text-xs text-slate-400 font-mono">
+                            {item["Form ID"]}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-      {/* Refresh Button */}
-      <div className="text-center mt-8">
-        <Button onClick={loadDashboardData} variant="secondary">
-          🔄 Refresh Data
-        </Button>
+              {/* Desktop Table Layout */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-700">
+                    <tr>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Date</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Description</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Food Type</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">SK Category</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Donor</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Weight</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Qty</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Value</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Form ID</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700">
+                    {filteredItems.map((item, index) => {
+                      // Color coding for SK Category
+                      const getSKCategoryColor = (category: string) => {
+                        switch (category) {
+                          case 'Perishable': return 'bg-green-900/50 text-green-300 border-green-600';
+                          case 'Catering/Banquet': return 'bg-purple-900/50 text-purple-300 border-purple-600';
+                          case 'Shelf Stable': return 'bg-blue-900/50 text-blue-300 border-blue-600';
+                          default: return 'bg-slate-700 text-slate-300 border-slate-600';
+                        }
+                      };
+                      
+                      return (
+                        <tr key={item.id} className={index % 2 === 0 ? 'bg-slate-800' : 'bg-slate-850'}>
+                          <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                            {formatDate(item["Processing Date"])}
+                          </td>
+                          <td className="px-4 lg:px-6 py-4 text-sm text-slate-200 max-w-xs">
+                            <div className="truncate" title={item.Description}>
+                              {item.Description}
+                            </div>
+                          </td>
+                          <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                            <span className="px-2 py-1 bg-slate-700 rounded-full text-xs">
+                              {item["Food Type"]}
+                            </span>
+                          </td>
+                          <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm">
+                            <span className={`px-2 py-1 rounded-full text-xs border ${getSKCategoryColor(item["Soup Kitchen Category"])}`}>
+                              {item["Soup Kitchen Category"]}
+                            </span>
+                          </td>
+                          <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                            {item["Donor Name"]}
+                          </td>
+                          <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                            {item["Weight (lbs)"]} lbs
+                          </td>
+                          <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                            {item.Quantity}
+                          </td>
+                          <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                            <div className="flex flex-col">
+                              <span className="font-medium">{formatCurrency(item["Estimated Value"])}</span>
+                              <span className="text-xs text-slate-400">
+                                {item["Confidence Level"]} confidence
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-slate-400 font-mono">
+                            {item["Form ID"]}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Refresh Button */}
+        <div className="text-center mt-6 sm:mt-8">
+          <Button onClick={loadDashboardData} variant="secondary" className="min-h-[44px] touch-manipulation">
+            🔄 Refresh Data
+          </Button>
+        </div>
       </div>
     </div>
+
   );
 };
