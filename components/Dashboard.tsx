@@ -88,10 +88,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
       return;
     }
 
-    // FIXED: More robust date parsing and comparison
+    // FIXED: Use Processing Date instead of createdTime for accurate filtering
     const filtered = items.filter(item => {
-      // Extract just the date part (YYYY-MM-DD) from the createdTime
-      const itemDateStr = item.createdTime.split('T')[0]; // "2025-08-13"
+      // Extract just the date part (YYYY-MM-DD) from the Processing Date
+      const itemDateStr = item["Processing Date"].split('T')[0]; // "2025-08-13"
       
       // Compare date strings directly (more reliable than Date objects)
       return itemDateStr >= startDate && itemDateStr <= endDate;
@@ -143,7 +143,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
 
     // Convert data to CSV format
     const csvData = filteredItems.map(item => [
-      new Date(item.createdTime).toLocaleDateString(),
+      new Date(item["Processing Date"]).toLocaleDateString(),
       item["Form ID"],
       `"${item.Description.replace(/"/g, '""')}"`, // Escape quotes
       item.Category,
@@ -336,7 +336,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
                 {filteredItems.map((item, index) => (
                   <tr key={item.id} className={index % 2 === 0 ? 'bg-slate-800' : 'bg-slate-850'}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                      {formatDate(item.createdTime)}
+                      {formatDate(item["Processing Date"])}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-200 max-w-xs">
                       <div className="truncate" title={item.Description}>
