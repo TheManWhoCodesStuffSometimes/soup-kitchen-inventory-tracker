@@ -68,56 +68,57 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
   const isExpirationEmpty = isFieldEmpty(item.expirationDate);
 
   return (
-    <div className="bg-slate-800 p-5 rounded-xl shadow-md border border-slate-700 relative transition-shadow hover:shadow-lg">
+    <div className="bg-slate-800 p-4 sm:p-5 rounded-xl shadow-md border border-slate-700 relative transition-shadow hover:shadow-lg">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold text-slate-100">Item #{itemIndex + 1}</h3>
+        <h3 className="text-base sm:text-lg font-bold text-slate-100">Item #{itemIndex + 1}</h3>
         <button
           type="button"
           onClick={() => onDelete(item.id)}
-          className="absolute top-3 right-3 text-slate-500 hover:text-red-400 hover:bg-slate-700 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+          className="absolute top-3 right-3 text-slate-500 hover:text-red-400 hover:bg-slate-700 rounded-full w-8 h-8 flex items-center justify-center transition-colors min-h-[44px] min-w-[44px] touch-manipulation"
           aria-label="Delete item"
         >
           <span className="text-2xl leading-none">&times;</span>
         </button>
       </div>
 
-      <div className="bg-slate-900/50 p-4 rounded-lg mb-5 border border-slate-700">
-        <p className="text-sm font-medium text-center text-slate-400 mb-3">Smart Input Options</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* Smart Input Options - Mobile optimized */}
+      <div className="bg-slate-900/50 p-3 sm:p-4 rounded-lg mb-4 sm:mb-5 border border-slate-700">
+        <p className="text-xs sm:text-sm font-medium text-center text-slate-400 mb-3">Smart Input Options</p>
+        <div className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-3">
            <Button 
              type="button"
              onClick={() => onOpenBarcode(itemIndex)} 
              variant="secondary" 
              disabled={isItemProcessing}
-             className="text-sm"
+             className="w-full text-xs sm:text-sm min-h-[44px] touch-manipulation"
            >
-             <BarcodeIcon /> Scan Barcode
+             <BarcodeIcon className="w-4 h-4" /> Scan Barcode
            </Button>
            <Button 
              type="button"
              onClick={() => onOpenCamera(itemIndex)} 
              variant="secondary"
              disabled={isItemProcessing}
-             className="text-sm"
+             className="w-full text-xs sm:text-sm min-h-[44px] touch-manipulation"
            >
-             <CameraIcon /> Analyze Photo
+             <CameraIcon className="w-4 h-4" /> Analyze Photo
            </Button>
            <Button 
              type="button"
              onClick={() => onOpenVoice(itemIndex)} 
              variant="secondary"
              disabled={isItemProcessing}
-             className="text-sm"
+             className="w-full text-xs sm:text-sm min-h-[44px] touch-manipulation"
            >
-             <MicIcon /> Voice Describe
+             <MicIcon className="w-4 h-4" /> Voice Describe
            </Button>
         </div>
         
         {isItemProcessing && (
           <div className="mt-3 text-center">
             <div className="flex items-center justify-center space-x-2 text-amber-400 bg-amber-900/20 border border-amber-600/30 rounded-lg p-3">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-400"></div>
-              <span className="text-sm font-medium">AI is analyzing in background...</span>
+              <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-amber-400"></div>
+              <span className="text-xs sm:text-sm font-medium">AI is analyzing in background...</span>
             </div>
             <p className="text-xs text-amber-300 mt-1">
               Continue with other items while this processes
@@ -126,118 +127,133 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
-        <div className="md:col-span-2">
-            <Input
-                label="Item Description"
-                name="description"
-                value={item.description}
-                onChange={handleInputChange}
-                placeholder="e.g., Campbell's Tomato Soup, 10.75 oz can"
-                required
-                className={getFieldClasses(
-                  item.description, 
-                  isItemProcessing ? "bg-slate-700 opacity-75" : ""
-                )}
-            />
-        </div>
-
-        <Select 
-          label="Category" 
-          name="category" 
-          value={item.category} 
-          onChange={handleInputChange} 
-          required
-          className={getFieldClasses(
-            item.category, 
-            isItemProcessing ? "bg-slate-700 opacity-75" : ""
-          )}
-        >
-          <option value="" disabled>Select Category</option>
-          {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-        </Select>
-
-        <Select 
-          label="Donor Name" 
-          name="donorName" 
-          value={item.donorName} 
-          onChange={handleInputChange} 
-          required
-          className={getFieldClasses(
-            item.donorName, 
-            isItemProcessing ? "bg-slate-700 opacity-75" : ""
-          )}
-        >
-           <option value="" disabled>Select Donor</option>
-           {DONORS.map(don => <option key={don} value={don}>{don === 'custom' ? "Custom (Enter manually)" : don}</option>)}
-        </Select>
-
-        {item.donorName === 'custom' && (
-            <div className="md:col-span-2">
-                <Input
-                    label="Custom Donor Name"
-                    name="customDonorText"
-                    value={item.customDonorText}
-                    onChange={handleInputChange}
-                    placeholder="Enter donor name manually"
-                    required
-                    className={getFieldClasses(
-                      item.customDonorText, 
-                      isItemProcessing ? "bg-slate-700 opacity-75" : ""
-                    )}
-                />
-            </div>
-        )}
-        
+      {/* Form Fields - Mobile optimized grid */}
+      <div className="space-y-4 sm:space-y-5">
+        {/* Description - Full width */}
         <div>
           <Input
-            label="Weight per Unit (lbs)"
-            name="weightLbs"
-            type="number"
-            value={item.weightLbs > 0 ? item.weightLbs.toFixed(2) : ''} 
-            onChange={handleNumberChange}
-            step="0.01"
-            min="0"
-            placeholder="0.00"
+            label="Item Description"
+            name="description"
+            value={item.description}
+            onChange={handleInputChange}
+            placeholder="e.g., Campbell's Tomato Soup, 10.75 oz can"
+            required
             className={getFieldClasses(
-              item.weightLbs, 
+              item.description, 
               isItemProcessing ? "bg-slate-700 opacity-75" : ""
             )}
           />
         </div>
+
+        {/* Category and Donor - Mobile: stack, SM+: side by side */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Select 
+            label="Category" 
+            name="category" 
+            value={item.category} 
+            onChange={handleInputChange} 
+            required
+            className={getFieldClasses(
+              item.category, 
+              isItemProcessing ? "bg-slate-700 opacity-75" : ""
+            )}
+          >
+            <option value="" disabled>Select Category</option>
+            {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+          </Select>
+
+          <Select 
+            label="Donor Name" 
+            name="donorName" 
+            value={item.donorName} 
+            onChange={handleInputChange} 
+            required
+            className={getFieldClasses(
+              item.donorName, 
+              isItemProcessing ? "bg-slate-700 opacity-75" : ""
+            )}
+          >
+             <option value="" disabled>Select Donor</option>
+             {DONORS.map(don => <option key={don} value={don}>{don === 'custom' ? "Custom (Enter manually)" : don}</option>)}
+          </Select>
+        </div>
+
+        {/* Custom Donor - Full width if needed */}
+        {item.donorName === 'custom' && (
+          <div>
+            <Input
+              label="Custom Donor Name"
+              name="customDonorText"
+              value={item.customDonorText}
+              onChange={handleInputChange}
+              placeholder="Enter donor name manually"
+              required
+              className={getFieldClasses(
+                item.customDonorText, 
+                isItemProcessing ? "bg-slate-700 opacity-75" : ""
+              )}
+            />
+          </div>
+        )}
         
+        {/* Weight and Quantity - Mobile: stack, SM+: side by side */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Input
+              label="Weight per Unit (lbs)"
+              name="weightLbs"
+              type="number"
+              value={item.weightLbs > 0 ? item.weightLbs.toFixed(2) : ''} 
+              onChange={handleNumberChange}
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+              className={getFieldClasses(
+                item.weightLbs, 
+                isItemProcessing ? "bg-slate-700 opacity-75" : ""
+              )}
+            />
+          </div>
+          
+          <div>
+            <Input
+              label="Quantity"
+              name="quantity"
+              type="number"
+              value={item.quantity.toString()}
+              onChange={handleNumberChange}
+              min="1"
+              step="1"
+              required
+              className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
+            />
+          </div>
+        </div>
+
+        {/* Expiration Date - Full width */}
         <div>
           <Input
-            label="Quantity"
-            name="quantity"
-            type="number"
-            value={item.quantity.toString()}
-            onChange={handleNumberChange}
-            min="1"
-            step="1"
+            label="Expiration Date"
+            name="expirationDate"
+            type="date"
+            value={item.expirationDate}
+            onChange={handleInputChange}
             required
-            className={isItemProcessing ? "bg-slate-700 opacity-75" : ""}
+            className={getFieldClasses(
+              item.expirationDate, 
+              isItemProcessing ? "bg-slate-700 opacity-75" : ""
+            )}
           />
         </div>
 
-        <div className="md:col-span-2">
-             <Input
-                label="Expiration Date"
-                name="expirationDate"
-                type="date"
-                value={item.expirationDate}
-                onChange={handleInputChange}
-                required
-                className={getFieldClasses(
-                  item.expirationDate, 
-                  isItemProcessing ? "bg-slate-700 opacity-75" : ""
-                )}
-            />
-        </div>
-
-        <div className="md:col-span-2 bg-slate-700/70 p-3 rounded-lg text-center mt-2">
-            <span className="font-semibold text-slate-100">Item Total Weight: {totalItemWeight} lbs</span>
-            <p className="text-slate-400 text-xs mt-0.5">({item.weightLbs || 0} lbs &times; {item.quantity} units)</p>
+        {/* Total Weight Display - Mobile optimized */}
+        <div className="bg-slate-700/70 p-3 rounded-lg text-center mt-4">
+          <span className="font-semibold text-slate-100 text-sm sm:text-base">
+            Item Total Weight: {totalItemWeight} lbs
+          </span>
+          <p className="text-slate-400 text-xs mt-0.5">
+            ({item.weightLbs || 0} lbs × {item.quantity} units)
+          </p>
         </div>
       </div>
 
