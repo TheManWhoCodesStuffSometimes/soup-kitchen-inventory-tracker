@@ -232,11 +232,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 font-sans">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <Spinner className="w-12 h-12 mx-auto mb-4" />
-            <p className="text-slate-300 text-lg">Loading dashboard data...</p>
+      <div className="min-h-screen bg-slate-900">
+        <div className="max-w-7xl mx-auto p-3 sm:p-4 lg:p-6 xl:p-8 font-sans">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <Spinner className="w-12 h-12 mx-auto mb-4" />
+              <p className="text-slate-300 text-lg">Loading dashboard data...</p>
+            </div>
           </div>
         </div>
       </div>
@@ -245,34 +247,50 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
 
   if (error) {
     return (
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 font-sans">
-        <div className="flex items-center justify-between mb-8">
-          <Button onClick={onNavigateHome} variant="secondary">
-            ← Back to Main
-          </Button>
-        </div>
-        <div className="bg-red-900/50 border border-red-600/50 rounded-lg p-6 text-center">
-          <h3 className="text-xl font-bold text-red-300 mb-2">Error Loading Data</h3>
-          <p className="text-red-200 mb-4">{error}</p>
-          <Button onClick={loadDashboardData} variant="primary">
-            Try Again
-          </Button>
+      <div className="min-h-screen bg-slate-900">
+        <div className="max-w-7xl mx-auto p-3 sm:p-4 lg:p-6 xl:p-8 font-sans">
+          <div className="flex items-center justify-between mb-6 sm:mb-8">
+            <Button onClick={onNavigateHome} variant="secondary" className="min-h-[44px] touch-manipulation">
+              ← Back
+            </Button>
+          </div>
+          <div className="bg-red-900/50 border border-red-600/50 rounded-lg p-6 text-center">
+            <h3 className="text-xl font-bold text-red-300 mb-2">Error Loading Data</h3>
+            <p className="text-red-200 mb-4">{error}</p>
+            <Button onClick={loadDashboardData} variant="primary">
+              Try Again
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
- Dashboard</h1>
-            <p className="mt-3 text-lg text-slate-300">View and analyze your recorded inventory data</p>
-            <div className="mt-4 h-1 w-24 bg-blue-500 mx-auto rounded-full" />
-          </header>
+  return (
+    <div className="min-h-screen bg-slate-900">
+      <div className="max-w-7xl mx-auto p-3 sm:p-4 lg:p-6 xl:p-8 font-sans">
+        {/* Header - Mobile responsive */}
+        <div className="flex items-center justify-between mb-6 sm:mb-8">
+          <Button onClick={onNavigateHome} variant="secondary" className="min-h-[44px] touch-manipulation">
+            ← Back
+          </Button>
+          <div className="flex-1 px-2 sm:px-4">
+            <header className="text-center">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-100">
+                Inventory Dashboard
+              </h1>
+              <p className="mt-2 sm:mt-3 text-sm sm:text-base lg:text-lg text-slate-300">
+                View and analyze your recorded inventory data
+              </p>
+              <div className="mt-3 sm:mt-4 h-1 w-16 sm:w-24 bg-blue-500 mx-auto rounded-full" />
+            </header>
+          </div>
+          <div className="w-16 sm:w-20 lg:w-32"></div>
         </div>
-        <div className="w-32"></div>
-      </div>
 
-      {/* Filters and Export - UPDATED with new filters */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+        {/* Filters and Export - Mobile optimized */}
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 sm:p-6 mb-6 sm:mb-8">
+          <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-6 lg:gap-4 lg:items-end">
             {/* Date filters - Mobile: Full width rows, Desktop: Two columns */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:contents">
               <Input
@@ -291,7 +309,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
             
             {/* Category filters - Mobile: Full width rows, Desktop: Two columns */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:contents">
-              {/* NEW: Soup Kitchen Category Filter */}
               <Select
                 label="SK Category"
                 value={soupKitchenCategoryFilter}
@@ -303,7 +320,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
                 <option value="Shelf Stable">Shelf Stable</option>
               </Select>
               
-              {/* NEW: Food Type Filter */}
               <Select
                 label="Food Type"
                 value={foodTypeFilter}
@@ -334,8 +350,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
                 📄 Export CSV
               </Button>
             </div>
+          </div>
         </div>
-      </div>
 
         {/* Summary Statistics - Mobile responsive grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-4 sm:mb-6">
@@ -357,7 +373,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
           </div>
         </div>
 
-        {/* NEW: Soup Kitchen Category Breakdown - Mobile responsive */}
+        {/* Soup Kitchen Category Breakdown - Mobile responsive */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <div className="bg-green-900/30 border border-green-600/30 p-4 sm:p-6 rounded-xl">
             <h3 className="text-sm font-medium text-green-300 mb-2 flex items-center">
@@ -582,6 +598,5 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
         </div>
       </div>
     </div>
-
   );
 };
