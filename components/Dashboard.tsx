@@ -1,29 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Spinner, Input } from './ui';
+import { Button, Spinner, Input, Select } from './ui';
 import { fetchDashboardData } from '../services/apiService';
-
-interface DashboardItem {
-  id: string;
-  createdTime: string;
-  "Item ID": string;
-  "Form ID": string;
-  "Total Items in Submission": number;
-  "Total Weight in Submission": number;
-  "Description": string;
-  "Category": string;
-  "Donor Name": string;
-  "Weight (lbs)": number;
-  "Quantity": number;
-  "Estimated Value": number;
-  "Price Per Unit": number;
-  "Confidence Level": string;
-  "Pricing Source": string;
-  "Search Results Summary": string;
-  "Pricing Notes": string;
-  "Processing Date": string;
-  "Created At": string;
-  "Last Modified": string;
-}
+import { DashboardItem, SoupKitchenCategory } from '../types';
 
 interface DashboardProps {
   onNavigateHome: () => void;
@@ -35,16 +13,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
   const [filteredItems, setFilteredItems] = useState<DashboardItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   
-  // Date filtering
+  // Filtering states
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [soupKitchenCategoryFilter, setSoupKitchenCategoryFilter] = useState<string>('');
+  const [foodTypeFilter, setFoodTypeFilter] = useState<string>('');
   
   // Summary stats
   const [summaryStats, setSummaryStats] = useState({
     totalItems: 0,
     totalWeight: 0,
     totalValue: 0,
-    uniqueForms: 0
+    uniqueForms: 0,
+    // NEW: Soup Kitchen Category breakdown
+    perishable: { count: 0, value: 0 },
+    catering: { count: 0, value: 0 },
+    shelfStable: { count: 0, value: 0 }
   });
 
   // Set default date range (last 30 days)
@@ -62,10 +46,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
     loadDashboardData();
   }, []);
 
-  // Filter items when dates change
+  // Filter items when filters change
   useEffect(() => {
-    filterItemsByDate();
-  }, [items, startDate, endDate]);
+    filterItems();
+  }, [items, startDate, endDate, soupKitchenCategoryFilter, foodTypeFilter]);
 
   const loadDashboardData = async () => {
     setIsLoading(true);
@@ -81,21 +65,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
     }
   };
 
-  const filterItemsByDate = () => {
-    if (!startDate || !endDate) {
-      setFilteredItems(items);
-      calculateSummaryStats(items);
-      return;
+  const filterItems = () => {
+    let filtered = items;
+
+    // Date filtering
+    if (startDate && endDate) {
+      filtered = filtered.filter(item => {
+        const itemDateStr = item["Processing Date"].split('T')[0];
+        return itemDateStr >= startDate && itemDateStr <= endDate;
+      });
     }
 
-    // FIXED: Use Processing Date instead of createdTime for accurate filtering
-    const filtered = items.filter(item => {
-      // Extract just the date part (YYYY-MM-DD) from the Processing Date
-      const itemDateStr = item["Processing Date"].split('T')[0]; // "2025-08-13"
-      
-      // Compare date strings directly (more reliable than Date objects)
-      return itemDateStr >= startDate && itemDateStr <= endDate;
-    });
+    // Soup Kitchen Category filtering
+    if (soupKitchenCategoryFilter) {
+      filtered = filtered.filter(item => 
+        item["Soup Kitchen Category"] === soupKitchenCategoryFilter
+      );
+    }
+
+    // Food Type filtering
+    if (foodTypeFilter) {
+      filtered = filtered.filter(item => 
+        item["Food Type"] === foodTypeFilter
+      );
+    }
 
     setFilteredItems(filtered);
     calculateSummaryStats(filtered);
@@ -103,13 +96,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
 
   const calculateSummaryStats = (itemsToCalculate: DashboardItem[]) => {
     const stats = itemsToCalculate.reduce(
-      (acc, item) => ({
-        totalItems: acc.totalItems + (item.Quantity || 0),
-        totalWeight: acc.totalWeight + (item["Weight (lbs)"] || 0) * (item.Quantity || 0),
-        totalValue: acc.totalValue + (item["Estimated Value"] || 0),
-        uniqueForms: acc.uniqueForms
-      }),
-      { totalItems: 0, totalWeight: 0, totalValue: 0, uniqueForms: 0 }
+      (acc, item) => {
+        const itemCount = item.Quantity || 0;
+        const itemValue = item["Estimated Value"] || 0;
+        
+        acc.totalItems += itemCount;
+        acc.totalWeight += (item["Weight (lbs)"] || 0) * itemCount;
+        acc.totalValue += itemValue;
+        
+        // NEW: Soup Kitchen Category breakdown
+        const skCategory = item["Soup Kitchen Category"];
+        if (skCategory === 'Perishable') {
+          acc.perishable.count += itemCount;
+          acc.perishable.value += itemValue;
+        } else if (skCategory === 'Catering/Banquet') {
+          acc.catering.count += itemCount;
+          acc.catering.value += itemValue;
+        } else if (skCategory === 'Shelf Stable') {
+          acc.shelfStable.count += itemCount;
+          acc.shelfStable.value += itemValue;
+        }
+        
+        return acc;
+      },
+      { 
+        totalItems: 0, 
+        totalWeight: 0, 
+        totalValue: 0, 
+        uniqueForms: 0,
+        perishable: { count: 0, value: 0 },
+        catering: { count: 0, value: 0 },
+        shelfStable: { count: 0, value: 0 }
+      }
     );
 
     // Count unique form IDs
@@ -119,18 +137,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
     setSummaryStats(stats);
   };
 
+  // Get unique values for filter dropdowns
+  const getUniqueValues = (field: keyof DashboardItem) => {
+    const uniqueValues = [...new Set(items.map(item => item[field]))];
+    return uniqueValues.filter(value => value && value !== '').sort();
+  };
+
   const exportToCSV = () => {
     if (filteredItems.length === 0) {
       alert('No data to export');
       return;
     }
 
-    // Define CSV headers
+    // Define CSV headers - UPDATED with new field names
     const headers = [
       'Date Created',
       'Form ID', 
       'Description',
-      'Category',
+      'Food Type', // UPDATED: was 'Category'
+      'Soup Kitchen Category', // NEW
       'Donor Name',
       'Weight (lbs)',
       'Quantity',
@@ -141,12 +166,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
       'Pricing Source'
     ];
 
-    // Convert data to CSV format
+    // Convert data to CSV format - UPDATED field references
     const csvData = filteredItems.map(item => [
       new Date(item["Processing Date"]).toLocaleDateString(),
       item["Form ID"],
       `"${item.Description.replace(/"/g, '""')}"`, // Escape quotes
-      item.Category,
+      item["Food Type"], // UPDATED: was item.Category
+      item["Soup Kitchen Category"], // NEW
       item["Donor Name"],
       item["Weight (lbs)"],
       item.Quantity,
@@ -178,6 +204,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const clearAllFilters = () => {
+    setStartDate('');
+    setEndDate('');
+    setSoupKitchenCategoryFilter('');
+    setFoodTypeFilter('');
   };
 
   const formatCurrency = (value: number) => {
@@ -246,9 +279,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
         <div className="w-32"></div>
       </div>
 
-      {/* Filters and Export */}
+      {/* Filters and Export - UPDATED with new filters */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
           <Input
             label="Start Date"
             type="date"
@@ -261,15 +294,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
           />
+          
+          {/* NEW: Soup Kitchen Category Filter */}
+          <Select
+            label="SK Category"
+            value={soupKitchenCategoryFilter}
+            onChange={(e) => setSoupKitchenCategoryFilter(e.target.value)}
+          >
+            <option value="">All SK Categories</option>
+            <option value="Perishable">Perishable</option>
+            <option value="Catering/Banquet">Catering/Banquet</option>
+            <option value="Shelf Stable">Shelf Stable</option>
+          </Select>
+          
+          {/* NEW: Food Type Filter */}
+          <Select
+            label="Food Type"
+            value={foodTypeFilter}
+            onChange={(e) => setFoodTypeFilter(e.target.value)}
+          >
+            <option value="">All Food Types</option>
+            {getUniqueValues("Food Type").map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </Select>
+          
           <Button
-            onClick={() => {
-              setStartDate('');
-              setEndDate('');
-            }}
+            onClick={clearAllFilters}
             variant="secondary"
             className="h-10"
           >
-            Clear Filters
+            Clear All
           </Button>
           <Button
             onClick={exportToCSV}
@@ -282,8 +337,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
         </div>
       </div>
 
-      {/* Summary Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      {/* Summary Statistics - ENHANCED with SK Category breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
           <h3 className="text-sm font-medium text-slate-400 mb-2">Total Submissions</h3>
           <p className="text-3xl font-bold text-amber-500">{summaryStats.uniqueForms}</p>
@@ -302,7 +357,52 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
         </div>
       </div>
 
-      {/* Items Table */}
+      {/* NEW: Soup Kitchen Category Breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-green-900/30 border border-green-600/30 p-6 rounded-xl">
+          <h3 className="text-sm font-medium text-green-300 mb-2">🥬 Perishable</h3>
+          <div className="flex justify-between items-end">
+            <div>
+              <p className="text-2xl font-bold text-green-400">{summaryStats.perishable.count}</p>
+              <p className="text-xs text-green-300">items</p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-semibold text-green-400">{formatCurrency(summaryStats.perishable.value)}</p>
+              <p className="text-xs text-green-300">value</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-purple-900/30 border border-purple-600/30 p-6 rounded-xl">
+          <h3 className="text-sm font-medium text-purple-300 mb-2">🍽️ Catering/Banquet</h3>
+          <div className="flex justify-between items-end">
+            <div>
+              <p className="text-2xl font-bold text-purple-400">{summaryStats.catering.count}</p>
+              <p className="text-xs text-purple-300">items</p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-semibold text-purple-400">{formatCurrency(summaryStats.catering.value)}</p>
+              <p className="text-xs text-purple-300">value</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-blue-900/30 border border-blue-600/30 p-6 rounded-xl">
+          <h3 className="text-sm font-medium text-blue-300 mb-2">📦 Shelf Stable</h3>
+          <div className="flex justify-between items-end">
+            <div>
+              <p className="text-2xl font-bold text-blue-400">{summaryStats.shelfStable.count}</p>
+              <p className="text-xs text-blue-300">items</p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-semibold text-blue-400">{formatCurrency(summaryStats.shelfStable.value)}</p>
+              <p className="text-xs text-blue-300">value</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Items Table - UPDATED with new columns */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
         <div className="p-6 border-b border-slate-700">
           <h2 className="text-2xl font-bold text-slate-100">
@@ -315,7 +415,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
 
         {filteredItems.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-slate-400 text-lg">No items found for the selected date range.</p>
+            <p className="text-slate-400 text-lg">No items found for the selected filters.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -324,7 +424,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Category</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Food Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">SK Category</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Donor</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Weight</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Qty</th>
@@ -333,43 +434,60 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateHome }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
-                {filteredItems.map((item, index) => (
-                  <tr key={item.id} className={index % 2 === 0 ? 'bg-slate-800' : 'bg-slate-850'}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                      {formatDate(item["Processing Date"])}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-200 max-w-xs">
-                      <div className="truncate" title={item.Description}>
-                        {item.Description}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                      <span className="px-2 py-1 bg-slate-700 rounded-full text-xs">
-                        {item.Category}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                      {item["Donor Name"]}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                      {item["Weight (lbs)"]} lbs
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                      {item.Quantity}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                      <div className="flex flex-col">
-                        <span className="font-medium">{formatCurrency(item["Estimated Value"])}</span>
-                        <span className="text-xs text-slate-400">
-                          {item["Confidence Level"]} confidence
+                {filteredItems.map((item, index) => {
+                  // Color coding for SK Category
+                  const getSKCategoryColor = (category: string) => {
+                    switch (category) {
+                      case 'Perishable': return 'bg-green-900/50 text-green-300 border-green-600';
+                      case 'Catering/Banquet': return 'bg-purple-900/50 text-purple-300 border-purple-600';
+                      case 'Shelf Stable': return 'bg-blue-900/50 text-blue-300 border-blue-600';
+                      default: return 'bg-slate-700 text-slate-300 border-slate-600';
+                    }
+                  };
+                  
+                  return (
+                    <tr key={item.id} className={index % 2 === 0 ? 'bg-slate-800' : 'bg-slate-850'}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                        {formatDate(item["Processing Date"])}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-200 max-w-xs">
+                        <div className="truncate" title={item.Description}>
+                          {item.Description}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                        <span className="px-2 py-1 bg-slate-700 rounded-full text-xs">
+                          {item["Food Type"]}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400 font-mono">
-                      {item["Form ID"]}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs border ${getSKCategoryColor(item["Soup Kitchen Category"])}`}>
+                          {item["Soup Kitchen Category"]}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                        {item["Donor Name"]}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                        {item["Weight (lbs)"]} lbs
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                        {item.Quantity}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{formatCurrency(item["Estimated Value"])}</span>
+                          <span className="text-xs text-slate-400">
+                            {item["Confidence Level"]} confidence
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400 font-mono">
+                        {item["Form ID"]}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
