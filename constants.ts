@@ -1,4 +1,4 @@
-import { Category, Donor } from './types';
+import { Category, Donor, SoupKitchenCategory } from './types';
 
 export const CATEGORIES: (Category | 'Other')[] = [
   'Canned Goods',
@@ -27,6 +27,13 @@ export const DONORS: Donor[] = [
   'Ivinson Memorial Hospital (IMH)',
   'Early Childhood Education Ctr',
   'custom'
+];
+
+// NEW: Soup Kitchen Categories
+export const SOUP_KITCHEN_CATEGORIES: SoupKitchenCategory[] = [
+  'Perishable',
+  'Catering/Banquet',
+  'Shelf Stable'
 ];
 
 export const N8N_WEBHOOKS = {
