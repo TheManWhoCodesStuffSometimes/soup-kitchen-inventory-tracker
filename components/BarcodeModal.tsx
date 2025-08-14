@@ -46,6 +46,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   const [modalState, setModalState] = useState<'scanning' | 'looking-up' | 'product-found' | 'error'>('scanning');
 
   // Parse product weight and convert to pounds (rounded to 2 decimal places)
+  // AUTOMATIC ROUNDING FIX: Always rounds to 2 decimal places to prevent validation errors
   const parseProductWeight = (quantityString: string): number => {
     if (!quantityString || typeof quantityString !== 'string') return 0;
 
@@ -98,8 +99,14 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
         return 0;
     }
 
-    // Round to 2 decimal places to avoid floating point precision issues
-    return Math.round(weightInPounds * 100) / 100;
+    // CRITICAL ROUNDING FIX: Always round to 2 decimal places
+    // This prevents validation errors from overly precise decimals like 0.1366844
+    // Math.round(x * 100) / 100 ensures exactly 2 decimal places
+    const roundedWeight = Math.round(weightInPounds * 100) / 100;
+    
+    console.log(`📏 Weight conversion: ${quantityString} → ${weightInPounds} → ${roundedWeight} lbs`);
+    
+    return roundedWeight;
   };
 
   // Auto-categorize products based on Open Food Facts categories
@@ -504,10 +511,6 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
           <div className="flex flex-col items-center justify-center py-8 space-y-4">
             <Spinner className="w-8 h-8" />
             <p className="text-slate-300 font-semibold">Looking up product...</p>
-            {/* DEBUG INFO - Remove in production */}
-            <div className="text-xs text-slate-500">
-              Debug: isLookingUp={isLookingUp.toString()}, hasLookedUp={hasLookedUp.toString()}
-            </div>
           </div>
         )}
 
