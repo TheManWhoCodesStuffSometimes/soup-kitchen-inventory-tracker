@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { AuthGate } from './components/AuthGate';
 import { MainPage } from './components/MainPage';
-import { InventoryRecorder } from './components/InventoryRecorder';
+import { CaptureRecorder } from './components/CaptureRecorder';
 import { Dashboard } from './components/Dashboard';
 
 type AppPage = 'main' | 'recorder' | 'dashboard';
@@ -17,7 +18,7 @@ const App: React.FC = () => {
             case 'main':
                 return <MainPage onNavigate={navigateToPage} />;
             case 'recorder':
-                return <InventoryRecorder onNavigateHome={() => navigateToPage('main')} />;
+                return <CaptureRecorder onExit={() => navigateToPage('main')} />;
             case 'dashboard':
                 return <Dashboard onNavigateHome={() => navigateToPage('main')} />;
             default:
@@ -27,7 +28,9 @@ const App: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-900">
-            {renderCurrentPage()}
+            <AuthGate>
+                {renderCurrentPage()}
+            </AuthGate>
         </div>
     );
 };
