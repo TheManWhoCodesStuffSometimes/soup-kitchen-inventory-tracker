@@ -47,17 +47,22 @@ async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     ...init,
   });
+  // Read the body once as text, then attempt JSON parse. Avoids
+  // "body stream already read" errors when the response isn't JSON.
+  const text = await res.text();
   if (!res.ok) {
-    let detail = '';
+    let detail = text;
     try {
-      const body = await res.json();
-      detail = body?.error || JSON.stringify(body);
+      const parsed = text ? JSON.parse(text) : null;
+      if (parsed && typeof parsed === 'object') {
+        detail = parsed.error || JSON.stringify(parsed);
+      }
     } catch {
-      detail = await res.text();
+      // body wasn't JSON; keep it as raw text
     }
     throw new Error(`${res.status} ${res.statusText}${detail ? `: ${detail}` : ''}`);
   }
-  return (await res.json()) as T;
+  return (text ? JSON.parse(text) : null) as T;
 }
 
 // --- Auth ---
